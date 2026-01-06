@@ -1,147 +1,127 @@
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] Initializing raylib UAWAVSH���
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] Platform backend: DESKTOP (GLFW)
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] Supported raylib modules:
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()]     > rcore:..... loaded (mandatory)
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()]     > rlgl:...... loaded (mandatory)
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()]     > rshapes:... loaded (optional)
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()]     > rtextures:. loaded (optional)
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()]     > rtext:..... loaded (optional)
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()]     > rmodels:... loaded (optional)
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()]     > raudio:.... loaded (optional)
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] SYSTEM: Closest fullscreen videomode: 2560 x 1440
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] DISPLAY: Device initialized successfully
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()]     > Display size: 2560 x 1440
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()]     > Screen size:  2560 x 1440
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()]     > Render size:  2560 x 1440
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()]     > Viewport offsets: 0, 0
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] GLAD: OpenGL extensions loaded successfully
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] GL: Supported extensions count: 239
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] GL: OpenGL device information:
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()]     > Vendor:   AMD
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()]     > Renderer: AMD Radeon RX 9070 XT (radeonsi, gfx1201, LLVM 21.1.6, DRM 3.64, 6.18.0-3-cachyos)
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()]     > Version:  4.6 (Core Profile) Mesa 25.3.1-arch1.3
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()]     > GLSL:     4.60
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] GL: VAO extension detected, VAO functions loaded successfully
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] GL: NPOT textures extension detected, full NPOT textures supported
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] GL: DXT compressed textures supported
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] GL: ETC2/EAC compressed textures supported
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] PLATFORM: DESKTOP (GLFW - X11): Initialized successfully
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 1] Texture loaded successfully (1x1 | R8G8B8A8 | 1 mipmaps)
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 1] Default texture loaded successfully
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 1] Vertex shader compiled successfully
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 2] Fragment shader compiled successfully
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 3] Program shader loaded successfully
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 3] Default shader loaded successfully
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] RLGL: Render batch vertex buffers loaded successfully in RAM (CPU)
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] RLGL: Render batch vertex buffers loaded successfully in VRAM (GPU)
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] RLGL: Default OpenGL state initialized successfully
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 2] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] FONT: Default font loaded successfully (224 glyphs)
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] SYSTEM: Working Directory: /home/myt/Documents/CultLtd.
-[WARN ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] GLFW: Failed to find selected monitor
-[INFO ] --- [2026-01-03 11:10:51] [cultLtd.odin:59:rl_trace_to_log()] GLFW: Selected fullscreen monitor: [1] DP-2
-[INFO ] --- [2026-01-03 11:11:22] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 2] Unloaded texture data from VRAM (GPU)
-[INFO ] --- [2026-01-03 11:11:22] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 3] Default shader unloaded successfully
-[INFO ] --- [2026-01-03 11:11:22] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 1] Default texture unloaded successfully
-[INFO ] --- [2026-01-03 11:11:22] [cultLtd.odin:59:rl_trace_to_log()] Window closed successfully
-E: [ID 1] Default texture unloaded successfully
-[INFO ] --- [2026-01-02 22:26:32] [cultLtd.odin:55:rl_trace_to_log()] Window closed successfully
-uccessfully
-y
-)] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] Initializing raylib ��87
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] Platform backend: DESKTOP (GLFW)
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] Supported raylib modules:
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > rcore:..... loaded (mandatory)
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > rlgl:...... loaded (mandatory)
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > rshapes:... loaded (optional)
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > rtextures:. loaded (optional)
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > rtext:..... loaded (optional)
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > rmodels:... loaded (optional)
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > raudio:.... loaded (optional)
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] SYSTEM: Closest fullscreen videomode: 2560 x 1440
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] DISPLAY: Device initialized successfully
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > Display size: 2560 x 1440
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > Screen size:  2560 x 1440
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > Render size:  2560 x 1440
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > Viewport offsets: 0, 0
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] GLAD: OpenGL extensions loaded successfully
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] GL: Supported extensions count: 239
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] GL: OpenGL device information:
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > Vendor:   AMD
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > Renderer: AMD Radeon RX 9070 XT (radeonsi, gfx1201, LLVM 21.1.6, DRM 3.64, 6.18.0-3-cachyos)
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > Version:  4.6 (Core Profile) Mesa 25.3.3-arch1.4
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > GLSL:     4.60
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] GL: VAO extension detected, VAO functions loaded successfully
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] GL: NPOT textures extension detected, full NPOT textures supported
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] GL: DXT compressed textures supported
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] GL: ETC2/EAC compressed textures supported
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] PLATFORM: DESKTOP (GLFW - X11): Initialized successfully
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 1] Texture loaded successfully (1x1 | R8G8B8A8 | 1 mipmaps)
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 1] Default texture loaded successfully
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 1] Vertex shader compiled successfully
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 2] Fragment shader compiled successfully
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 3] Program shader loaded successfully
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 3] Default shader loaded successfully
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] RLGL: Render batch vertex buffers loaded successfully in RAM (CPU)
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] RLGL: Render batch vertex buffers loaded successfully in VRAM (GPU)
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] RLGL: Default OpenGL state initialized successfully
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 2] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] FONT: Default font loaded successfully (224 glyphs)
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] SYSTEM: Working Directory: /home/myt/Documents/CultLtd.
+[WARN ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] GLFW: Failed to find selected monitor
+[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] GLFW: Selected fullscreen monitor: [1] DP-2
+[INFO ] --- [2026-01-06 00:52:00] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 2] Unloaded texture data from VRAM (GPU)
+[INFO ] --- [2026-01-06 00:52:00] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 3] Default shader unloaded successfully
+[INFO ] --- [2026-01-06 00:52:00] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 1] Default texture unloaded successfully
+[INFO ] --- [2026-01-06 00:52:00] [cultLtd.odin:59:rl_trace_to_log()] Window closed successfully
+-01-06 00:03:49] [steam.odin:35:steam_init()] Miza
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Kjed
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] iSportLerWust_88
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Alien
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Solaire
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Sollnock
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] ty vole
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Ballisticz
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] adrien
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Fedøsik
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Godd
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] MoE
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Rǟɨɖɛʀ
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Pumpkinn
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Donald Trump
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] DER ÜBERGOTT
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] ✪ SchniqMASTER
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Okan
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Jesus Fistus
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] friedrich.von.hoffmeister
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Felix
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] booN_4
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Sweationix
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] KriziaTR
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] nuwu from canada
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Леон
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] r1cE
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] EggGo
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] balinh2016
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] WrenCh
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Znarf0815
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] cloudy
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] ElPuerro
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] CEO of Habicht
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] kek
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] puf
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] QuEaKo
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Backstep Becky
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] slimyzockt7
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] https://discord.gg/wMQcZvF
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Star Platinum
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] x1g_luckt
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] pingoo44
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Nuziiii2200
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Kn𖹭wnAsD3ni$
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] MeisterDerWendigkeit
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] VaPzFate
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Devi
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Let it poppin'!
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] neito
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Pissnelke_007
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] 76561199059683205
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Habub
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Finn
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Rimuru Tempest
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] D1zel
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] MARMOK#CsTrigon
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] ✪ turbo:abdullah
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] REFLEX
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Firegold
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] why are you gay
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Alex
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] JustDilaver
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] sleepingamber11
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] julek_swk
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Θ Hades
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] leann34nbmeuse
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] rusya.rarykin
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] rd727137
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] ...
+[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] zyrthon
+[WARN ] --- [2026-01-06 00:03:49] [cultLtd.odin:59:rl_trace_to_log()] GLFW: Failed to find selected monitor
+[INFO ] --- [2026-01-06 00:03:49] [cultLtd.odin:59:rl_trace_to_log()] GLFW: Selected fullscreen monitor: [1] DP-2
+[INFO ] --- [2026-01-06 00:03:49] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 2] Unloaded texture data from VRAM (GPU)
+[INFO ] --- [2026-01-06 00:03:49] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 3] Default shader unloaded successfully
+[INFO ] --- [2026-01-06 00:03:49] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 1] Default texture unloaded successfully
+[INFO ] --- [2026-01-06 00:03:49] [cultLtd.odin:59:rl_trace_to_log()] Window closed successfully
+ 22:22:23] [cultLtd.odin:122:main()] 1
 [DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
 [DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
 [DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1

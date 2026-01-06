@@ -4,24 +4,23 @@ import "base:runtime"
 import "core:c"
 import "core:flags"
 import "core:log"
+import "core:math"
+import "core:math/ease"
 import "core:math/linalg"
-import vmem "core:mem/virtual"
 import old_os "core:os"
 import os "core:os/os2"
+import "core:testing"
 import rl "vendor:raylib"
 import stbsp "vendor:stb/sprintf"
 
 import ase "./aseprite"
-import steam "./steamworks/"
-
-
-import "vendor:ggpo"
+import vmem "core:mem/virtual"
 
 LOGIC_FPS :: 60
 LOGIC_TICK_RATE :: 1.0 / LOGIC_FPS
 
 LOG_PATH :: "berry.logs"
-STEAM :: #config(STEAM, false)
+
 
 rl_trace_to_log :: proc "c" (rl_level: rl.TraceLogLevel, message: cstring, args: ^c.va_list) {
 	context = g_ctx
@@ -64,7 +63,6 @@ rl_trace_to_log :: proc "c" (rl_level: rl.TraceLogLevel, message: cstring, args:
 	)
 }
 
-
 EntityFlagBits :: enum u32 {
 	Controlabe,
 	Camera,
@@ -73,15 +71,12 @@ EntityFlagBits :: enum u32 {
 
 EntityFlags :: bit_set[EntityFlagBits;u32]
 
-EntityId :: distinct u64
-
 Entity :: struct {
-	dead:      bool,
-	speed:     f32,
 	flags:     EntityFlags,
+	speed:     f32,
 	using pos: [2]f32,
 	size:      [2]f32,
-	id:        EntityId,
+	id:        u64,
 	// vel:       [2]f32,
 }
 
@@ -91,26 +86,14 @@ CultCtxFlagBits :: enum u32 {
 
 CultCtxFlags :: bit_set[CultCtxFlagBits;u32]
 
-KeyActions :: enum u8 {
-	DebugCross,
-	UP,
-	DOWN,
-	LEFT,
-	RIGHT,
-	INTERACT,
-}
-
-
 CultCtx :: struct {
 	flags:       CultCtxFlags,
 	render_size: [2]f32,
 	cameras:     []rl.Camera2D,
 	entities:    [dynamic]Entity,
-	keymap:      [KeyActions]rl.KeyboardKey,
 }
 
 // Global
-g_is_server := #config(IS_SERVER, false)
 g_berry_debug := ODIN_DEBUG
 g_ctx: runtime.Context
 g_arena: vmem.Arena
@@ -131,19 +114,16 @@ main :: proc() {
 			log.create_console_logger(),
 		)
 
-		ase.genereate_png_from_ase("aseprite", "./assets/")
 		rl.SetTraceLogLevel(.ALL)
 		rl.SetTraceLogCallback(rl_trace_to_log)
+		ase.genereate_png_from_ase("aseprite", "./assets/")
 	}
 	context = g_ctx
+
 
 	rl.SetConfigFlags({.FULLSCREEN_MODE, .BORDERLESS_WINDOWED_MODE})
 	rl.InitWindow(0, 0, "CultLtd.")
 	defer rl.CloseWindow()
-
-	when STEAM {
-		steam_init()
-	}
 
 	arena_err := vmem.arena_init_growing(&g_arena)
 	ensure(arena_err == nil)
@@ -164,14 +144,7 @@ main :: proc() {
 	ctx.render_size = {f32(rl.GetRenderWidth()), f32(rl.GetRenderHeight())}
 	ctx.flags = {}
 	ctx.entities = make([dynamic]Entity, 0, 128)
-	{ 	// set up default keybindings
-		ctx.keymap[.DebugCross] = .F2
-		ctx.keymap[.UP] = .W
-		ctx.keymap[.DOWN] = .S
-		ctx.keymap[.RIGHT] = .D
-		ctx.keymap[.LEFT] = .A
-		ctx.keymap[.INTERACT] = .E
-	}
+
 	ctx.cameras = {{offset = ctx.render_size / 2, zoom = 1}}
 	defer vmem.arena_destroy(&g_arena)
 
@@ -194,13 +167,8 @@ main :: proc() {
 
 		for elapsed_time >= LOGIC_TICK_RATE {
 			elapsed_time -= LOGIC_TICK_RATE
-			//TODO(abdul): sync server
-			if g_is_server {
-				// logic_update_server()
-			} else {
-				// logic_update_client()
-			}
-			logic_upadate_shared(LOGIC_TICK_RATE, &ctx)
+
+			logic_upadate(LOGIC_TICK_RATE, &ctx)
 		}
 
 
@@ -214,24 +182,20 @@ main :: proc() {
 			rl.DrawFPS(0, 0)
 		}
 	}
-
-	when STEAM {
-		steam_destroy()
-	}
 }
 
 
-logic_upadate_shared :: proc(delta_time: f32, ctx: ^CultCtx) {
+logic_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
 
 
 	for &entity in ctx.entities {
 		if .Controlabe in entity.flags { 	// movement ctl
 
 			input: [2]f32
-			if rl.IsKeyDown(ctx.keymap[.UP]) do input.y -= 1
-			if rl.IsKeyDown(ctx.keymap[.DOWN]) do input.y += 1
-			if rl.IsKeyDown(ctx.keymap[.RIGHT]) do input.x += 1
-			if rl.IsKeyDown(ctx.keymap[.LEFT]) do input.x -= 1
+			if rl.IsKeyDown(.W) do input.y -= 1
+			if rl.IsKeyDown(.S) do input.y += 1
+			if rl.IsKeyDown(.D) do input.x += 1
+			if rl.IsKeyDown(.A) do input.x -= 1
 
 			if input.x != 0 || input.y != 0 {
 				dir := linalg.normalize(input)
@@ -239,14 +203,12 @@ logic_upadate_shared :: proc(delta_time: f32, ctx: ^CultCtx) {
 			}
 		}
 	}
-
-
 }
 
 
 render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
-	camera_folow_entiy :: proc(entity: ^Entity, camera: ^rl.Camera2D) {
-		camera.target = entity.pos + (entity.size / 2)
+	camera_folow_entiy :: proc(player: ^Entity, camera: ^rl.Camera2D) {
+		camera.target = player.pos + (player.size / 2)
 
 		rl.BeginMode2D(camera^)
 		defer rl.EndMode2D()
@@ -254,7 +216,7 @@ render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
 		rl.DrawRectangle(0, 0, 64, 64, rl.GRAY)
 
 		rl.DrawRectanglePro(
-			rl.Rectangle{entity.pos.x, entity.pos.y, entity.size.x, entity.size.y},
+			rl.Rectangle{player.pos.x, player.pos.y, player.size.x, player.size.y},
 			[2]f32{},
 			0,
 			rl.RED,
@@ -267,7 +229,7 @@ render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
 		}
 	}
 
-	if rl.IsKeyPressed(ctx.keymap[.DebugCross]) {
+	if rl.IsKeyPressed(.F2) {
 		if .DebugCross in ctx.flags {
 			ctx.flags -= {.DebugCross}
 		} else {
