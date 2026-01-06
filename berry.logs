@@ -1,56 +1,57 @@
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] Initializing raylib Ëˇ87
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] Platform backend: DESKTOP (GLFW)
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] Supported raylib modules:
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > rcore:..... loaded (mandatory)
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > rlgl:...... loaded (mandatory)
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > rshapes:... loaded (optional)
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > rtextures:. loaded (optional)
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > rtext:..... loaded (optional)
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > rmodels:... loaded (optional)
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > raudio:.... loaded (optional)
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] SYSTEM: Closest fullscreen videomode: 2560 x 1440
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] DISPLAY: Device initialized successfully
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > Display size: 2560 x 1440
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > Screen size:  2560 x 1440
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > Render size:  2560 x 1440
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > Viewport offsets: 0, 0
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] GLAD: OpenGL extensions loaded successfully
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] GL: Supported extensions count: 239
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] GL: OpenGL device information:
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > Vendor:   AMD
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > Renderer: AMD Radeon RX 9070 XT (radeonsi, gfx1201, LLVM 21.1.6, DRM 3.64, 6.18.0-3-cachyos)
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > Version:  4.6 (Core Profile) Mesa 25.3.3-arch1.4
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()]     > GLSL:     4.60
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] GL: VAO extension detected, VAO functions loaded successfully
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] GL: NPOT textures extension detected, full NPOT textures supported
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] GL: DXT compressed textures supported
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] GL: ETC2/EAC compressed textures supported
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] PLATFORM: DESKTOP (GLFW - X11): Initialized successfully
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 1] Texture loaded successfully (1x1 | R8G8B8A8 | 1 mipmaps)
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 1] Default texture loaded successfully
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 1] Vertex shader compiled successfully
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 2] Fragment shader compiled successfully
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 3] Program shader loaded successfully
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 3] Default shader loaded successfully
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] RLGL: Render batch vertex buffers loaded successfully in RAM (CPU)
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] RLGL: Render batch vertex buffers loaded successfully in VRAM (GPU)
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] RLGL: Default OpenGL state initialized successfully
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 2] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] FONT: Default font loaded successfully (224 glyphs)
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] SYSTEM: Working Directory: /home/myt/Documents/CultLtd.
-[WARN ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] GLFW: Failed to find selected monitor
-[INFO ] --- [2026-01-06 00:51:59] [cultLtd.odin:59:rl_trace_to_log()] GLFW: Selected fullscreen monitor: [1] DP-2
-[INFO ] --- [2026-01-06 00:52:00] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 2] Unloaded texture data from VRAM (GPU)
-[INFO ] --- [2026-01-06 00:52:00] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 3] Default shader unloaded successfully
-[INFO ] --- [2026-01-06 00:52:00] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 1] Default texture unloaded successfully
-[INFO ] --- [2026-01-06 00:52:00] [cultLtd.odin:59:rl_trace_to_log()] Window closed successfully
--01-06 00:03:49] [steam.odin:35:steam_init()] Miza
-[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Kjed
-[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] iSportLerWust_88
-[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Alien
-[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Solaire
-[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Sollnock
-[INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] ty vole
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] Initializing raylib ËOπ
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] Platform backend: DESKTOP (GLFW)
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] Supported raylib modules:
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()]     > rcore:..... loaded (mandatory)
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()]     > rlgl:...... loaded (mandatory)
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()]     > rshapes:... loaded (optional)
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()]     > rtextures:. loaded (optional)
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()]     > rtext:..... loaded (optional)
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()]     > rmodels:... loaded (optional)
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()]     > raudio:.... loaded (optional)
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] DISPLAY: Device initialized successfully
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()]     > Display size: 1920 x 1080
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()]     > Screen size:  1920 x 1080
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()]     > Render size:  1920 x 1080
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()]     > Viewport offsets: 0, 0
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] GLAD: OpenGL extensions loaded successfully
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] GL: Supported extensions count: 239
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] GL: OpenGL device information:
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()]     > Vendor:   AMD
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()]     > Renderer: AMD Radeon RX 9070 XT (radeonsi, gfx1201, LLVM 21.1.6, DRM 3.64, 6.18.3-2-cachyos)
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()]     > Version:  4.6 (Core Profile) Mesa 25.3.3-arch1.4
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()]     > GLSL:     4.60
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] GL: VAO extension detected, VAO functions loaded successfully
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] GL: NPOT textures extension detected, full NPOT textures supported
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] GL: DXT compressed textures supported
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] GL: ETC2/EAC compressed textures supported
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] PLATFORM: DESKTOP (GLFW - X11): Initialized successfully
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 1] Texture loaded successfully (1x1 | R8G8B8A8 | 1 mipmaps)
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 1] Default texture loaded successfully
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 1] Vertex shader compiled successfully
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 2] Fragment shader compiled successfully
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 3] Program shader loaded successfully
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 3] Default shader loaded successfully
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] RLGL: Render batch vertex buffers loaded successfully in RAM (CPU)
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] RLGL: Render batch vertex buffers loaded successfully in VRAM (GPU)
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] RLGL: Default OpenGL state initialized successfully
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 2] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] FONT: Default font loaded successfully (224 glyphs)
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] SYSTEM: Working Directory: /home/myt/Documents/CultLtd.
+[WARN ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] GLFW: Failed to find selected monitor
+[INFO ] --- [2026-01-06 14:10:41] [cultLtd.odin:59:rl_trace_to_log()] GLFW: Selected monitor: [1] DP-2
+[DEBUG] --- [2026-01-06 14:10:43] [cultLtd.odin:299:render_upadate()] host
+[DEBUG] --- [2026-01-06 14:10:43] [cultLtd.odin:304:render_upadate()] hello
+[INFO ] --- [2026-01-06 14:10:50] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 2] Unloaded texture data from VRAM (GPU)
+[INFO ] --- [2026-01-06 14:10:50] [cultLtd.odin:59:rl_trace_to_log()] SHADER: [ID 3] Default shader unloaded successfully
+[INFO ] --- [2026-01-06 14:10:50] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 1] Default texture unloaded successfully
+[INFO ] --- [2026-01-06 14:10:50] [cultLtd.odin:59:rl_trace_to_log()] Window closed successfully
+ully
+14:06:08] [cultLtd.odin:59:rl_trace_to_log()] Window closed successfully
+ TEXTURE: [ID 1] Default texture unloaded successfully
+[INFO ] --- [2026-01-06 12:59:25] [cultLtd.odin:59:rl_trace_to_log()] Window closed successfully
+26-01-06 12:58:04] [cultLtd.odin:59:rl_trace_to_log()] TEXTURE: [ID 1] Default texture unloaded successfully
+[INFO ] --- [2026-01-06 12:58:04] [cultLtd.odin:59:rl_trace_to_log()] Window closed successfully
+:35:steam_init()] ty vole
 [INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Ballisticz
 [INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] adrien
 [INFO ] --- [2026-01-06 00:03:49] [steam.odin:35:steam_init()] Fed√∏sik

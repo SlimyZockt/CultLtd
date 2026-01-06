@@ -74,19 +74,22 @@ EntityFlagBits :: enum u32 {
 EntityFlags :: bit_set[EntityFlagBits;u32]
 
 EntityId :: distinct u64
+TextureId :: distinct u64
 
 Entity :: struct {
-	dead:      bool,
-	speed:     f32,
-	flags:     EntityFlags,
-	using pos: [2]f32,
-	size:      [2]f32,
-	id:        EntityId,
+	dead:       bool,
+	speed:      f32,
+	flags:      EntityFlags,
+	using pos:  [2]f32,
+	size:       [2]f32,
+	id:         EntityId,
+	texture_id: TextureId,
 	// vel:       [2]f32,
 }
 
 CultCtxFlagBits :: enum u32 {
 	DebugCross,
+	Server,
 }
 
 CultCtxFlags :: bit_set[CultCtxFlagBits;u32]
@@ -100,24 +103,40 @@ KeyActions :: enum u8 {
 	INTERACT,
 }
 
-
-CultCtx :: struct {
-	flags:       CultCtxFlags,
+RenderCtx :: struct {
 	render_size: [2]f32,
 	cameras:     []rl.Camera2D,
-	entities:    [dynamic]Entity,
-	keymap:      [KeyActions]rl.KeyboardKey,
+	textures:    [dynamic]rl.Texture,
 }
 
+GameCtx :: struct {
+	entities: [dynamic]Entity,
+}
+
+MultiplayerCtx :: struct {
+	// test: steam.ENet,
+}
+
+
+CultCtx :: struct {
+	flags:             CultCtxFlags,
+	using game_ctx:    GameCtx,
+	using render_ctx:  RenderCtx,
+	using multiplayer: MultiplayerCtx,
+	keymap:            [KeyActions]rl.KeyboardKey,
+}
+
+
+HEADLESS :: #config(HEADLESS, false)
+
 // Global
-g_is_server := #config(IS_SERVER, false)
-g_berry_debug := ODIN_DEBUG
+g_cult_debug := #config(CULT_DEBUG, ODIN_DEBUG)
 g_ctx: runtime.Context
 g_arena: vmem.Arena
 
 main :: proc() {
 	g_ctx = context
-	if g_berry_debug {
+	if g_cult_debug {
 		if !os.exists(LOG_PATH) {
 			_, err := os.create(LOG_PATH)
 			ensure(err == nil, "failed to create log file")
@@ -137,7 +156,12 @@ main :: proc() {
 	}
 	context = g_ctx
 
-	rl.SetConfigFlags({.FULLSCREEN_MODE, .BORDERLESS_WINDOWED_MODE})
+	when ODIN_DEBUG {
+		rl.SetConfigFlags({.BORDERLESS_WINDOWED_MODE})
+	} else {
+		rl.SetConfigFlags({.FULLSCREEN_MODE, .BORDERLESS_WINDOWED_MODE})
+	}
+
 	rl.InitWindow(0, 0, "CultLtd.")
 	defer rl.CloseWindow()
 
@@ -195,10 +219,11 @@ main :: proc() {
 		for elapsed_time >= LOGIC_TICK_RATE {
 			elapsed_time -= LOGIC_TICK_RATE
 			//TODO(abdul): sync server
-			if g_is_server {
+			if .Server in ctx.flags {
 				// logic_update_server()
 			} else {
 				// logic_update_client()
+
 			}
 			logic_upadate_shared(LOGIC_TICK_RATE, &ctx)
 		}
@@ -222,8 +247,6 @@ main :: proc() {
 
 
 logic_upadate_shared :: proc(delta_time: f32, ctx: ^CultCtx) {
-
-
 	for &entity in ctx.entities {
 		if .Controlabe in entity.flags { 	// movement ctl
 
@@ -245,28 +268,6 @@ logic_upadate_shared :: proc(delta_time: f32, ctx: ^CultCtx) {
 
 
 render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
-	camera_folow_entiy :: proc(entity: ^Entity, camera: ^rl.Camera2D) {
-		camera.target = entity.pos + (entity.size / 2)
-
-		rl.BeginMode2D(camera^)
-		defer rl.EndMode2D()
-
-		rl.DrawRectangle(0, 0, 64, 64, rl.GRAY)
-
-		rl.DrawRectanglePro(
-			rl.Rectangle{entity.pos.x, entity.pos.y, entity.size.x, entity.size.y},
-			[2]f32{},
-			0,
-			rl.RED,
-		)
-	}
-
-	for &entity in ctx.entities {
-		if .Camera in entity.flags {
-			camera_folow_entiy(&entity, &ctx.cameras[0])
-		}
-	}
-
 	if rl.IsKeyPressed(ctx.keymap[.DebugCross]) {
 		if .DebugCross in ctx.flags {
 			ctx.flags -= {.DebugCross}
@@ -274,6 +275,45 @@ render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
 			ctx.flags += {.DebugCross}
 		}
 	}
+
+
+	for &entity in ctx.entities {
+		if .Camera in entity.flags {
+			ctx.cameras[0].target = entity.pos + (entity.size / 2)
+			rl.BeginMode2D(ctx.cameras[0])
+			defer rl.EndMode2D()
+
+			rl.DrawRectangle(0, 0, 64, 64, rl.GRAY)
+
+
+			rl.DrawRectanglePro(
+				rl.Rectangle{entity.pos.x, entity.pos.y, entity.size.x, entity.size.y},
+				[2]f32{},
+				0,
+				rl.RED,
+			)
+		}
+	}
+
+	if rl.GuiButton(rl.Rectangle{ctx.render_size.x - 80, 5, 75, 60}, "host") {
+		log.debug("host")
+		nw_hd := steam.NetworkingMessages_SteamAPI()
+		id := steam.SteamNetworkingIdentity{}
+		steam.NetworkingIdentity_SetSteamID(&id, steam.User_GetSteamID(steam.User()))
+		msg := "hello from server"
+		log.debug("hello")
+		steam.NetworkingMessages_SendMessageToUser(nw_hd, &id, &msg, u32(len(msg)), 0, 0)
+	}
+	if rl.GuiButton(rl.Rectangle{ctx.render_size.x - 80, 70, 75, 60}, "connect") {
+		nw_hd := steam.NetworkingMessages_SteamAPI()
+
+
+		id := steam.SteamNetworkingIdentity{}
+		steam.NetworkingIdentity_SetSteamID(&id, steam.User_GetSteamID(steam.User()))
+		steam.NetworkingMessages_AcceptSessionWithUser(nw_hd, &id)
+		log.debug("connect")
+	}
+
 
 	if .DebugCross in ctx.flags {
 		rl.DrawLine(
