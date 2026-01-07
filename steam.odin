@@ -160,6 +160,22 @@ steam_callback_upadate :: proc(ctx: ^CultCtx, arena: ^vmem.Arena) {
 				}
 			}
 
+			#partial switch call_completed.iCallback {
+			case .GameRichPresenceJoinRequested:
+				data := (^steam.GameLobbyJoinRequested)(&param[0])
+				steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
+				log.debug("Joined ")
+			case .LobbyChatUpdate:
+				data := (^steam.LobbyChatUpdate)(&param[0])
+				log.info("Entered:", data.ulSteamIDLobby)
+			case .LobbyEnter:
+				data := (^steam.LobbyEnter)(&param[0])
+				log.info("Entered Lobby:", data.ulSteamIDLobby)
+			case .GameLobbyJoinRequested:
+				data := (^steam.GameLobbyJoinRequested)(&param[0])
+				steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
+				log.debug("Joined ")
+			}
 			// log.info(call_completed.iCallback)
 			// }
 
