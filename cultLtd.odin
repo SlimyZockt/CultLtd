@@ -81,7 +81,7 @@ TextureId :: distinct u64
 Entity :: struct {
 	generation: u32,
 	speed:      f32,
-    flags:      EntityFlags,
+	flags:      EntityFlags,
 	id:         EntityId,
 	texture_id: TextureId,
 	using pos:  [2]f32,
@@ -155,10 +155,9 @@ main :: proc() {
 		)
 
 		ase.genereate_png_from_ase("aseprite", "./assets/")
-		rl.SetTraceLogLevel(.ALL)
-		rl.SetTraceLogCallback(rl_trace_to_log)
 	}
 	context = g_ctx
+
 
 	when ODIN_DEBUG {
 		rl.SetConfigFlags({.BORDERLESS_WINDOWED_MODE})
@@ -166,6 +165,8 @@ main :: proc() {
 		rl.SetConfigFlags({.FULLSCREEN_MODE, .BORDERLESS_WINDOWED_MODE})
 	}
 
+	rl.SetTraceLogLevel(.ALL)
+	rl.SetTraceLogCallback(rl_trace_to_log)
 	rl.InitWindow(0, 0, "CultLtd.")
 	defer rl.CloseWindow()
 
@@ -174,7 +175,6 @@ main :: proc() {
 	when STEAM {
 		steam_init(&ctx.steam)
 	}
-
 
 	arena_err := vmem.arena_init_growing(&g_arena)
 	ensure(arena_err == nil)
@@ -227,7 +227,7 @@ main :: proc() {
 		for elapsed_time >= LOGIC_TICK_RATE {
 			elapsed_time -= LOGIC_TICK_RATE
 			when STEAM {
-				steam_callback_upadate(&ctx)
+				steam_callback_upadate(&ctx, &g_arena)
 			}
 			//TODO(abdul): sync server
 			if .Server in ctx.flags {
@@ -277,31 +277,6 @@ logic_upadate_shared :: proc(delta_time: f32, ctx: ^CultCtx) {
 
 }
 
-steam_callback_upadate :: proc(ctx: ^CultCtx) { 	// , arena: ^vmem.Arena, allocator := context.allocator) {
-	// temp := vmem.arena_temp_begin(arena)
-	// defer vmem.arena_temp_end(temp)
-
-	// temp_mem := make([dynamic]byte, allocator)
-	h_pipe := steam.GetHSteamPipe()
-	steam.ManualDispatch_RunFrame(h_pipe)
-
-	callback: steam.CallbackMsg
-	for (steam.ManualDispatch_GetNextCallback(h_pipe, &callback)) {
-
-		if callback.iCallback == .SteamAPICallCompleted {
-			call_completed := transmute(^steam.SteamAPICallCompleted)callback.pubParam
-			log.info("CallResult: ", call_completed)
-			#partial switch call_completed.iCallback {
-			case .LobbyEnter:
-				log.info("LobbyEnter")
-			}
-		}
-
-		steam.ManualDispatch_FreeLastCallback(h_pipe)
-	}
-
-}
-
 
 render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
 	switch ctx.scene {
@@ -319,11 +294,11 @@ render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
 				rl.Rectangle{ctx.render_size.x / 2, (0 + ctx.render_size.y / 4) + 70, 200, 60},
 				"Host",
 			) {
-				_ = steam.Matchmaking_CreateLobby(ctx.matchmaking, .Private, 4)
+				_ = steam.Matchmaking_CreateLobby(ctx.matchmaking, .FriendsOnly, 4)
 				ctx.scene = .Game
 			}
 			if rl.GuiButton(
-				rl.Rectangle{ctx.render_size.x / 2, (0 + ctx.render_size.y / 4) + 70, 200, 60},
+				rl.Rectangle{ctx.render_size.x / 2, (0 + ctx.render_size.y / 4) + 140, 200, 60},
 				"Join",
 			) {
 				// _ = steam.Matchmaking_CreateLobby(ctx.matchmaking, .Private, 4)
