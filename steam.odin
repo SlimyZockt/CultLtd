@@ -128,7 +128,6 @@ steam_callback_upadate :: proc(ctx: ^CultCtx, arena: ^vmem.Arena) {
 				log.info(call_completed.iCallback)
 				#partial switch call_completed.iCallback {
 				case .GameRichPresenceJoinRequested:
-
 					data := (^steam.GameLobbyJoinRequested)(&param[0])
 					steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
 					log.debug("Joined ")

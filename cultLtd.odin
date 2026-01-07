@@ -182,17 +182,19 @@ main :: proc() {
 
 	monitor_id: i32
 	monitor_count := rl.GetMonitorCount()
-	monitor_height := rl.GetMonitorHeight(0)
+	ctx.render_size.y = f32(rl.GetMonitorHeight(0))
 	for i in 0 ..= monitor_count {
-		new_height := rl.GetMonitorHeight(i)
-		if monitor_height < new_height {
+		new_height := f32(rl.GetMonitorHeight(i))
+		if ctx.render_size.y < new_height {
 			monitor_id = i
-			monitor_height = new_height
+			ctx.render_size.y = new_height
 		}
 	}
+	ctx.render_size.x = f32(rl.GetMonitorWidth(monitor_id))
+	ctx.render_size /= f32(2)
+	rl.SetWindowSize(i32(ctx.render_size.x), i32(ctx.render_size.y))
 	rl.SetWindowMonitor(monitor_id)
 
-	ctx.render_size = {f32(rl.GetRenderWidth()), f32(rl.GetRenderHeight())}
 	ctx.flags = {}
 	ctx.scene = .MainMenu
 	ctx.entities = make([dynamic]Entity, 0, 128)
