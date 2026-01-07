@@ -302,6 +302,7 @@ render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
 				"Join",
 			) {
 				// _ = steam.Matchmaking_CreateLobby(ctx.matchmaking, .Private, 4)
+				steam.Friends_ActivateGameOverlay(steam.Friends(), "friends")
 				ctx.scene = .Game
 			}
 		}

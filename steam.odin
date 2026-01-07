@@ -125,33 +125,38 @@ steam_callback_upadate :: proc(ctx: ^CultCtx, arena: ^vmem.Arena) {
 				call_completed.iCallback,
 				&failed,
 			) {
+				log.info(call_completed.iCallback)
 				#partial switch call_completed.iCallback {
+				case .LobbyChatUpdate:
+					data := (^steam.LobbyChatUpdate)(&param[0])
+					log.info("Entered:", data.ulSteamIDLobby)
 				case .LobbyEnter:
 					data := (^steam.LobbyEnter)(&param[0])
-
-					log.info("LobbyEnter", data)
-				case .LobbyInvite:
-					log.info("LobbyInvite")
+					log.info("Entered Lobby:", data.ulSteamIDLobby)
 				case .GameLobbyJoinRequested:
-					log.info("LobbyJoinRequested")
+					data := (^steam.GameLobbyJoinRequested)(&param[0])
+					steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
+					log.debug("Joined ")
 				case .LobbyCreated:
 					data := (^steam.LobbyCreated)(&param[0])
-					ok := steam.Matchmaking_SetLobbyData(
-						ctx.matchmaking,
-						data.ulSteamIDLobby,
-						"Test",
-						"Test",
-					)
-					log.debug(ok)
-					ok = steam.Matchmaking_SetLobbyJoinable(
-						ctx.matchmaking,
-						data.ulSteamIDLobby,
-						true,
-					)
-					log.debug(ok)
-					log.info("LobbyCreated", data)
+					// ok := steam.Matchmaking_SetLobbyData(
+					// 	ctx.matchmaking,
+					// 	data.ulSteamIDLobby,
+					// 	"Test",
+					// 	"Test",
+					// )
+					// log.debug(ok)
+					// ok = steam.Matchmaking_SetLobbyJoinable(
+					// 	ctx.matchmaking,
+					// 	data.ulSteamIDLobby,
+					// 	true,
+					// )
+
+					log.info(data)
 				}
 			}
+
+			// log.info(call_completed.iCallback)
 			// }
 
 		}
