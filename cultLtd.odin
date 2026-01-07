@@ -81,11 +81,11 @@ TextureId :: distinct u64
 Entity :: struct {
 	generation: u32,
 	speed:      f32,
-	flags:      EntityFlags,
-	using pos:  [2]f32,
-	size:       [2]f32,
+    flags:      EntityFlags,
 	id:         EntityId,
 	texture_id: TextureId,
+	using pos:  [2]f32,
+	size:       [2]f32,
 	// vel:       [2]f32,
 }
 
@@ -105,7 +105,14 @@ KeyActions :: enum u8 {
 	INTERACT,
 }
 
+Scenes :: enum u32 {
+	Game,
+	MainMenu,
+}
+
+
 RenderCtx :: struct {
+	scene:       Scenes,
 	render_size: [2]f32,
 	cameras:     []rl.Camera2D,
 	textures:    [dynamic]rl.Texture,
@@ -187,6 +194,7 @@ main :: proc() {
 
 	ctx.render_size = {f32(rl.GetRenderWidth()), f32(rl.GetRenderHeight())}
 	ctx.flags = {}
+	ctx.scene = .MainMenu
 	ctx.entities = make([dynamic]Entity, 0, 128)
 	{ 	// set up default keybindings
 		ctx.keymap[.DebugCross] = .F2
@@ -210,7 +218,7 @@ main :: proc() {
 	)
 	elapsed_time: f32
 
-	rl.SetTargetFPS(1000)
+	rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), 30)
 
 	for !rl.WindowShouldClose() {
 		delta_time := rl.GetFrameTime()
@@ -218,7 +226,9 @@ main :: proc() {
 
 		for elapsed_time >= LOGIC_TICK_RATE {
 			elapsed_time -= LOGIC_TICK_RATE
-			steam_callback_upadate()
+			when STEAM {
+				steam_callback_upadate(&ctx)
+			}
 			//TODO(abdul): sync server
 			if .Server in ctx.flags {
 				// logic_update_server()
@@ -267,27 +277,64 @@ logic_upadate_shared :: proc(delta_time: f32, ctx: ^CultCtx) {
 
 }
 
-steam_callback_upadate :: proc(ctx: ^CultCtx) {
+steam_callback_upadate :: proc(ctx: ^CultCtx) { 	// , arena: ^vmem.Arena, allocator := context.allocator) {
+	// temp := vmem.arena_temp_begin(arena)
+	// defer vmem.arena_temp_end(temp)
+
+	// temp_mem := make([dynamic]byte, allocator)
 	h_pipe := steam.GetHSteamPipe()
 	steam.ManualDispatch_RunFrame(h_pipe)
 
-	msg: steam.CallbackMsg
-	for (steam.ManualDispatch_GetNextCallback(h_pipe, &msg)) {
+	callback: steam.CallbackMsg
+	for (steam.ManualDispatch_GetNextCallback(h_pipe, &callback)) {
 
-		if msg.iCallback == .SteamAPICallCompleted {
+		if callback.iCallback == .SteamAPICallCompleted {
 			call_completed := transmute(^steam.SteamAPICallCompleted)callback.pubParam
 			log.info("CallResult: ", call_completed)
-            switch call_completed.iCallback {
-            case .LobbyEnter:
-                log.info("LobbyEnter")
-            }
+			#partial switch call_completed.iCallback {
+			case .LobbyEnter:
+				log.info("LobbyEnter")
+			}
 		}
+
+		steam.ManualDispatch_FreeLastCallback(h_pipe)
 	}
 
 }
 
 
 render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
+	switch ctx.scene {
+	case .Game:
+		render_game(delta_time, ctx)
+	case .MainMenu:
+		if rl.GuiButton(
+			rl.Rectangle{ctx.render_size.x / 2, (0 + ctx.render_size.y / 4), 200, 60},
+			"Play",
+		) {
+			ctx.scene = .Game
+		}
+		when STEAM {
+			if rl.GuiButton(
+				rl.Rectangle{ctx.render_size.x / 2, (0 + ctx.render_size.y / 4) + 70, 200, 60},
+				"Host",
+			) {
+				_ = steam.Matchmaking_CreateLobby(ctx.matchmaking, .Private, 4)
+				ctx.scene = .Game
+			}
+			if rl.GuiButton(
+				rl.Rectangle{ctx.render_size.x / 2, (0 + ctx.render_size.y / 4) + 70, 200, 60},
+				"Join",
+			) {
+				// _ = steam.Matchmaking_CreateLobby(ctx.matchmaking, .Private, 4)
+				ctx.scene = .Game
+			}
+		}
+	}
+
+}
+
+render_game :: proc(delta_time: f32, ctx: ^CultCtx) {
 	if rl.IsKeyPressed(ctx.keymap[.DebugCross]) {
 		if .DebugCross in ctx.flags {
 			ctx.flags -= {.DebugCross}
@@ -316,27 +363,6 @@ render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
 	}
 
 
-	if rl.GuiButton(rl.Rectangle{ctx.render_size.x - 80, 5, 75, 60}, "host") {
-		_ = steam.Matchmaking_CreateLobby(ctx.matchmaking, .Private, 4)
-		// steam.Utils_GetAPICallResult()
-
-		steam.GameLobbyJoinRequested
-
-		log.debug("host")
-		id := steam.SteamNetworkingIdentity{}
-		// steam.NetworkingIdentity_SetSteamID(&id, steam.User_GetSteamID(steam.User()))
-		steam.NetworkingIdentity_SetGenericString(&id, "test")
-		msg := "hello from server"
-		steam.NetworkingMessages_SendMessageToUser(
-			ctx.network_message,
-			&id,
-			&msg,
-			u32(len(msg)) + 1,
-			0,
-			0,
-		)
-	}
-
 	if .DebugCross in ctx.flags {
 		rl.DrawLine(
 			0,
@@ -354,5 +380,4 @@ render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
 			rl.DARKGRAY,
 		)
 	}
-
 }

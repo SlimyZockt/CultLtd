@@ -81,7 +81,6 @@ steam_init :: proc(ctx: ^SteamCtx) {
 	ctx.network_util = steam.NetworkingUtils_SteamAPI()
 	ctx.matchmaking = steam.Matchmaking()
 
-    steam.NetworkingSockets_RunCallbacks()
 
 	steam.Client_SetWarningMessageHook(ctx.client, steam_debug_text_hook)
 	steam.ManualDispatch_Init()

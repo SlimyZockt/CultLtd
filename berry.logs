@@ -1,186 +1,130 @@
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] Initializing raylib ØçŽ
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] Platform backend: DESKTOP (GLFW)
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] Supported raylib modules:
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()]     > rcore:..... loaded (mandatory)
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()]     > rlgl:...... loaded (mandatory)
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()]     > rshapes:... loaded (optional)
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()]     > rtextures:. loaded (optional)
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()]     > rtext:..... loaded (optional)
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()]     > rmodels:... loaded (optional)
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()]     > raudio:.... loaded (optional)
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] DISPLAY: Device initialized successfully
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()]     > Display size: 1920 x 1080
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()]     > Screen size:  1920 x 1080
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()]     > Render size:  1920 x 1080
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()]     > Viewport offsets: 0, 0
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] GLAD: OpenGL extensions loaded successfully
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] GL: Supported extensions count: 239
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] GL: OpenGL device information:
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()]     > Vendor:   AMD
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()]     > Renderer: AMD Radeon RX 9070 XT (radeonsi, gfx1201, LLVM 21.1.6, DRM 3.64, 6.18.3-2-cachyos)
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()]     > Version:  4.6 (Core Profile) Mesa 25.3.3-arch1.4
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()]     > GLSL:     4.60
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] GL: VAO extension detected, VAO functions loaded successfully
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] GL: NPOT textures extension detected, full NPOT textures supported
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] GL: DXT compressed textures supported
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] GL: ETC2/EAC compressed textures supported
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] PLATFORM: DESKTOP (GLFW - X11): Initialized successfully
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] TEXTURE: [ID 1] Texture loaded successfully (1x1 | R8G8B8A8 | 1 mipmaps)
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] TEXTURE: [ID 1] Default texture loaded successfully
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] SHADER: [ID 1] Vertex shader compiled successfully
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] SHADER: [ID 2] Fragment shader compiled successfully
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] SHADER: [ID 3] Program shader loaded successfully
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] SHADER: [ID 3] Default shader loaded successfully
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] RLGL: Render batch vertex buffers loaded successfully in RAM (CPU)
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] RLGL: Render batch vertex buffers loaded successfully in VRAM (GPU)
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] RLGL: Default OpenGL state initialized successfully
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] TEXTURE: [ID 2] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] FONT: Default font loaded successfully (224 glyphs)
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] SYSTEM: Working Directory: /home/myt/Documents/CultLtd.
-[WARN ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] GLFW: Failed to find selected monitor
-[INFO ] --- [2026-01-06 23:23:35] [cultLtd.odin:60:rl_trace_to_log()] GLFW: Selected monitor: [0] DP-3
-[INFO ] --- [2026-01-06 23:23:50] [steam.odin:46:steam_networtk_debug_to_log()] Service thread exiting.
-[INFO ] --- [2026-01-06 23:23:50] [steam.odin:46:steam_networtk_debug_to_log()] Shutting down low level socket/threading support.
-[INFO ] --- [2026-01-06 23:23:50] [cultLtd.odin:60:rl_trace_to_log()] TEXTURE: [ID 2] Unloaded texture data from VRAM (GPU)
-[INFO ] --- [2026-01-06 23:23:50] [cultLtd.odin:60:rl_trace_to_log()] SHADER: [ID 3] Default shader unloaded successfully
-[INFO ] --- [2026-01-06 23:23:50] [cultLtd.odin:60:rl_trace_to_log()] TEXTURE: [ID 1] Default texture unloaded successfully
-[INFO ] --- [2026-01-06 23:23:50] [cultLtd.odin:60:rl_trace_to_log()] Window closed successfully
-lly (5003): Timed out attempting to connect
-[INFO ] --- [2026-01-06 23:23:38] [steam.odin:46:steam_networtk_debug_to_log()] [#1980194396 P2P str:test rem msg vport] messages session problem detected locally: 5003 Timed out attempting to connect
-[INFO ] --- [2026-01-06 23:23:38] [steam.odin:46:steam_networtk_debug_to_log()] [#1980194396 P2P str:test rem msg vport] Posting SteamNetworkingMessagesSessionFailed_t
-[INFO ] --- [2026-01-06 23:23:54] [steam.odin:46:steam_networtk_debug_to_log()] Shutting down low level socket/threading support.
-[INFO ] --- [2026-01-06 23:23:54] [steam.odin:46:steam_networtk_debug_to_log()] Service thread exiting.
-[INFO ] --- [2026-01-06 23:23:54] [cultLtd.odin:60:rl_trace_to_log()] TEXTURE: [ID 2] Unloaded texture data from VRAM (GPU)
-[INFO ] --- [2026-01-06 23:23:54] [cultLtd.odin:60:rl_trace_to_log()] SHADER: [ID 3] Default shader unloaded successfully
-[INFO ] --- [2026-01-06 23:23:54] [cultLtd.odin:60:rl_trace_to_log()] TEXTURE: [ID 1] Default texture unloaded successfully
-[INFO ] --- [2026-01-06 23:23:54] [cultLtd.odin:60:rl_trace_to_log()] Window closed successfully
-32:steam_networtk_debug_to_log()] Verbose [#3002101183 P2P str:test rem msg vport] Created connection for messages session
-[INFO ] --- [2026-01-06 22:05:02] [steam.odin:47:steam_networtk_debug_to_log()] [#3002101183 P2P str:test rem msg vport] Created connection for messages session
-[INFO ] --- [2026-01-06 22:05:02] [cultLtd.odin:315:render_upadate()] []
-[DEBUG] --- [2026-01-06 22:05:02] [cultLtd.odin:316:render_upadate()] connect
-[INFO ] --- [2026-01-06 22:05:04] [cultLtd.odin:331:render_upadate()] []
-[DEBUG] --- [2026-01-06 22:05:04] [cultLtd.odin:332:render_upadate()] connect
-[DEBUG] --- [2026-01-06 22:05:05] [cultLtd.odin:302:render_upadate()] host
-[DEBUG] --- [2026-01-06 22:05:05] [cultLtd.odin:308:render_upadate()] hello
-[INFO ] --- [2026-01-06 22:05:05] [cultLtd.odin:315:render_upadate()] []
-[DEBUG] --- [2026-01-06 22:05:05] [cultLtd.odin:316:render_upadate()] connect
-[INFO ] --- [2026-01-06 22:05:06] [cultLtd.odin:331:render_upadate()] []
-[DEBUG] --- [2026-01-06 22:05:06] [cultLtd.odin:332:render_upadate()] connect
-[DEBUG] --- [2026-01-06 22:05:06] [cultLtd.odin:302:render_upadate()] host
-[DEBUG] --- [2026-01-06 22:05:06] [cultLtd.odin:308:render_upadate()] hello
-[INFO ] --- [2026-01-06 22:05:06] [cultLtd.odin:315:render_upadate()] []
-[DEBUG] --- [2026-01-06 22:05:06] [cultLtd.odin:316:render_upadate()] connect
-[DEBUG] --- [2026-01-06 22:05:06] [steam.odin:32:steam_networtk_debug_to_log()] Msg [#3002101183 P2P str:test rem msg vport] closed by app before we got connected (1001) P2PSession destroyed
-[INFO ] --- [2026-01-06 22:05:06] [steam.odin:47:steam_networtk_debug_to_log()] [#3002101183 P2P str:test rem msg vport] closed by app before we got connected (1001) P2PSession destroyed
-[DEBUG] --- [2026-01-06 22:05:06] [steam.odin:32:steam_networtk_debug_to_log()] Msg Shutting down low level socket/threading support.
-odin:302:render_upadate()] host
-[DEBUG] --- [2026-01-06 21:59:01] [cultLtd.odin:308:render_upadate()] hello
-[INFO ] --- [2026-01-06 21:59:01] [cultLtd.odin:315:render_upadate()] []
-[DEBUG] --- [2026-01-06 21:59:01] [cultLtd.odin:316:render_upadate()] connect
-[INFO ] --- [2026-01-06 21:59:01] [cultLtd.odin:331:render_upadate()] []
-[DEBUG] --- [2026-01-06 21:59:01] [cultLtd.odin:332:render_upadate()] connect
-[DEBUG] --- [2026-01-06 21:59:01] [cultLtd.odin:302:render_upadate()] host
-[DEBUG] --- [2026-01-06 21:59:01] [cultLtd.odin:308:render_upadate()] hello
-[INFO ] --- [2026-01-06 21:59:01] [cultLtd.odin:315:render_upadate()] []
-[DEBUG] --- [2026-01-06 21:59:01] [cultLtd.odin:316:render_upadate()] connect
-[DEBUG] --- [2026-01-06 21:59:02] [cultLtd.odin:302:render_upadate()] host
-[DEBUG] --- [2026-01-06 21:59:02] [cultLtd.odin:308:render_upadate()] hello
-[INFO ] --- [2026-01-06 21:59:02] [cultLtd.odin:315:render_upadate()] []
-[DEBUG] --- [2026-01-06 21:59:02] [cultLtd.odin:316:render_upadate()] connect
-[INFO ] --- [2026-01-06 21:59:02] [cultLtd.odin:331:render_upadate()] []
-[DEBUG] --- [2026-01-06 21:59:02] [cultLtd.odin:332:render_upadate()] connect
-[DEBUG] --- [2026-01-06 21:59:02] [cultLtd.odin:302:render_upadate()] host
-[DEBUG] --- [2026-01-06 21:59:02] [cultLtd.odin:308:render_upadate()] hello
-[INFO ] --- [2026-01-06 21:59:02] [cultLtd.odin:315:render_upadate()] []
-[DEBUG] --- [2026-01-06 21:59:02] [cultLtd.odin:316:render_upadate()] connect
-[INFO ] --- [2026-01-06 21:59:03] [cultLtd.odin:331:render_upadate()] []
-[DEBUG] --- [2026-01-06 21:59:03] [cultLtd.odin:332:render_upadate()] connect
-[DEBUG] --- [2026-01-06 21:59:03] [cultLtd.odin:302:render_upadate()] host
-[DEBUG] --- [2026-01-06 21:59:03] [cultLtd.odin:308:render_upadate()] hello
-[INFO ] --- [2026-01-06 21:59:03] [cultLtd.odin:315:render_upadate()] []
-[DEBUG] --- [2026-01-06 21:59:03] [cultLtd.odin:316:render_upadate()] connect
-[INFO ] --- [2026-01-06 21:59:04] [steam.odin:46:steam_networtk_debug_to_log()] [#1579813368 P2P str:test rem msg vport] closed by app before we got connected (1001) P2PSession destroyed
-[INFO ] --- [2026-01-06 21:59:04] [steam.odin:46:steam_networtk_debug_to_log()] Shutting down low level socket/threading support.
-cessfully
-[INFO ] --- [2026-01-06 18:18:57] [cultLtd.odin:60:rl_trace_to_log()] TEXTURE: [ID 1] Default texture unloaded successfully
-[INFO ] --- [2026-01-06 18:18:57] [cultLtd.odin:60:rl_trace_to_log()] Window closed successfully
-), rejecting SendMessageToUser
-[DEBUG] --- [2026-01-06 18:17:37] [cultLtd.odin:320:render_upadate()] host
-[DEBUG] --- [2026-01-06 18:17:37] [cultLtd.odin:326:render_upadate()] hello
-[INFO ] --- [2026-01-06 18:17:37] [cultLtd.odin:185:_proclit$anon-1()] Previous messages connection #2657201158 P2P rem msg vport broken (5003, Timed out attempting to connect), rejecting SendMessageToUser
-[DEBUG] --- [2026-01-06 18:17:38] [cultLtd.odin:320:render_upadate()] host
-[DEBUG] --- [2026-01-06 18:17:38] [cultLtd.odin:326:render_upadate()] hello
-[INFO ] --- [2026-01-06 18:17:38] [cultLtd.odin:185:_proclit$anon-1()] Previous messages connection #2657201158 P2P rem msg vport broken (5003, Timed out attempting to connect), rejecting SendMessageToUser
-[INFO ] --- [2026-01-06 18:17:41] [cultLtd.odin:185:_proclit$anon-1()] Shutting down low level socket/threading support.
-[INFO ] --- [2026-01-06 18:17:41] [cultLtd.odin:185:_proclit$anon-1()] Service thread exiting.
-[INFO ] --- [2026-01-06 18:17:41] [cultLtd.odin:60:rl_trace_to_log()] TEXTURE: [ID 2] Unloaded texture data from VRAM (GPU)
-[INFO ] --- [2026-01-06 18:17:41] [cultLtd.odin:60:rl_trace_to_log()] SHADER: [ID 3] Default shader unloaded successfully
-[INFO ] --- [2026-01-06 18:17:41] [cultLtd.odin:60:rl_trace_to_log()] TEXTURE: [ID 1] Default texture unloaded successfully
-[INFO ] --- [2026-01-06 18:17:41] [cultLtd.odin:60:rl_trace_to_log()] Window closed successfully
-tLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
-[DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] Initializing raylib è: 
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] Platform backend: DESKTOP (GLFW)
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] Supported raylib modules:
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()]     > rcore:..... loaded (mandatory)
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()]     > rlgl:...... loaded (mandatory)
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()]     > rshapes:... loaded (optional)
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()]     > rtextures:. loaded (optional)
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()]     > rtext:..... loaded (optional)
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()]     > rmodels:... loaded (optional)
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()]     > raudio:.... loaded (optional)
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] DISPLAY: Device initialized successfully
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()]     > Display size: 1920 x 1080
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()]     > Screen size:  1920 x 1080
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()]     > Render size:  1920 x 1080
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()]     > Viewport offsets: 0, 0
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] GLAD: OpenGL extensions loaded successfully
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] GL: Supported extensions count: 239
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] GL: OpenGL device information:
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()]     > Vendor:   AMD
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()]     > Renderer: AMD Radeon RX 9070 XT (radeonsi, gfx1201, LLVM 21.1.6, DRM 3.64, 6.18.3-2-cachyos)
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()]     > Version:  4.6 (Core Profile) Mesa 25.3.3-arch1.4
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()]     > GLSL:     4.60
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] GL: VAO extension detected, VAO functions loaded successfully
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] GL: NPOT textures extension detected, full NPOT textures supported
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] GL: DXT compressed textures supported
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] GL: ETC2/EAC compressed textures supported
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] PLATFORM: DESKTOP (GLFW - X11): Initialized successfully
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] TEXTURE: [ID 1] Texture loaded successfully (1x1 | R8G8B8A8 | 1 mipmaps)
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] TEXTURE: [ID 1] Default texture loaded successfully
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] SHADER: [ID 1] Vertex shader compiled successfully
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] SHADER: [ID 2] Fragment shader compiled successfully
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] SHADER: [ID 3] Program shader loaded successfully
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] SHADER: [ID 3] Default shader loaded successfully
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] RLGL: Render batch vertex buffers loaded successfully in RAM (CPU)
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] RLGL: Render batch vertex buffers loaded successfully in VRAM (GPU)
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] RLGL: Default OpenGL state initialized successfully
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] TEXTURE: [ID 2] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] FONT: Default font loaded successfully (224 glyphs)
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] SYSTEM: Working Directory: /home/myt/Documents/CultLtd.
+[WARN ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] GLFW: Failed to find selected monitor
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:61:rl_trace_to_log()] GLFW: Selected monitor: [0] DP-3
+[INFO ] --- [2026-01-07 14:58:52] [steam.odin:46:steam_networtk_debug_to_log()] Got cert for steamid:76561198399174878 from Steam
+[INFO ] --- [2026-01-07 14:58:52] [steam.odin:46:steam_networtk_debug_to_log()] Certificate expires in 23h07m at 1767881157 (current time 1767797932), will renew in 21h07m
+[INFO ] --- [2026-01-07 14:58:52] [cultLtd.odin:293:steam_callback_upadate()] CallResult:  &SteamAPICallCompleted{hAsyncCall = 1962166702800440950, iCallback = %!(BAD ENUM VALUE=1296), cubParam = 792}
+[INFO ] --- [2026-01-07 14:58:53] [cultLtd.odin:293:steam_callback_upadate()] CallResult:  &SteamAPICallCompleted{hAsyncCall = 12323741976187252428, iCallback = "HTTPRequestCompleted", cubParam = 24}
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Got SDR network config.  Loaded revision 1763157357 OK
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Performing ping measurement
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] SDR RelayNetworkStatus:  avail=Attempting  config=OK  anyrelay=Attempting   (Performing ping measurement)
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] AuthStatus (steamid:76561198399174878):  OK  (OK)
+[INFO ] --- [2026-01-07 14:58:53] [cultLtd.odin:293:steam_callback_upadate()] CallResult:  &SteamAPICallCompleted{hAsyncCall = 4556153327191876204, iCallback = "HTTPRequestCompleted", cubParam = 24}
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'sto2' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'ord' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'dxb' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'jnb' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'gru' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'sgp' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'hkg' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'syd' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'sto' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'ams' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'ams4' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'par' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'vie' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'waw' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'lhr' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'mad' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'dfw' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'iad' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'atl' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'sea' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'tyo' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'lax' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'lim' established.
+[INFO ] --- [2026-01-07 14:58:53] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'seo' established.
+[INFO ] --- [2026-01-07 14:58:54] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'bom2' established.
+[INFO ] --- [2026-01-07 14:58:54] [steam.odin:46:steam_networtk_debug_to_log()] Communications with routing cluster 'eze' established.
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'dxb#55 (185.25.183.179:27023)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'fra#520 (162.254.197.43:27028)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'sto2#299 (155.133.252.86:27037)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'hkg#32 (103.28.54.163:27046)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'syd#53 (103.10.125.21:27021)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'jnb#19 (155.133.238.178:27033)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'ord#146 (162.254.193.98:27022)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'gru#77 (155.133.227.36:27045)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'sgp#65 (103.10.124.117:27033)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'sto#534 (162.254.198.156:27088)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'waw#234 (155.133.230.103:27018)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'vie#234 (146.66.155.73:27018)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'ams#44 (155.133.248.36:27058)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'ams4#122 (188.42.106.164:27074)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'lhr#156 (162.254.196.85:27032)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'mad#76 (155.133.246.39:27044)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'par#54 (185.25.182.19:27022)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'dfw#108 (162.254.194.39:27030)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'tyo#37 (45.121.184.5:27051)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'atl#146 (162.254.199.178:27022)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'iad#216 (162.254.192.72:27046)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'sea#181 (205.196.6.213:27057)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'lax#120 (162.254.195.73:27042)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'seo#77 (146.66.152.37:27045)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'lim#9 (155.133.244.35:27023)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'bom2#5 (155.133.224.20:27019)' because shutdown
+[DEBUG] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Destroying relay 'eze#32 (155.133.255.98:27046)' because shutdown
+[INFO ] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Shutting down low level socket/threading support.
+[INFO ] --- [2026-01-07 14:58:55] [steam.odin:46:steam_networtk_debug_to_log()] Service thread exiting.
+[INFO ] --- [2026-01-07 14:58:55] [cultLtd.odin:61:rl_trace_to_log()] TEXTURE: [ID 2] Unloaded texture data from VRAM (GPU)
+[INFO ] --- [2026-01-07 14:58:55] [cultLtd.odin:61:rl_trace_to_log()] SHADER: [ID 3] Default shader unloaded successfully
+[INFO ] --- [2026-01-07 14:58:55] [cultLtd.odin:61:rl_trace_to_log()] TEXTURE: [ID 1] Default texture unloaded successfully
+[INFO ] --- [2026-01-07 14:58:55] [cultLtd.odin:61:rl_trace_to_log()] Window closed successfully
+:61:rl_trace_to_log()] TEXTURE: [ID 2] Unloaded texture data from VRAM (GPU)
+[INFO ] --- [2026-01-07 13:10:25] [cultLtd.odin:61:rl_trace_to_log()] SHADER: [ID 3] Default shader unloaded successfully
+[INFO ] --- [2026-01-07 13:10:25] [cultLtd.odin:61:rl_trace_to_log()] TEXTURE: [ID 1] Default texture unloaded successfully
+[INFO ] --- [2026-01-07 13:10:25] [cultLtd.odin:61:rl_trace_to_log()] Window closed successfully
+log()] Destroying relay 'lim#154 (155.133.244.52:27030)' because shutdown
+[INFO ] --- [2026-01-07 13:10:03] [steam.odin:46:steam_networtk_debug_to_log()] Shutting down low level socket/threading support.
+[INFO ] --- [2026-01-07 13:10:03] [steam.odin:46:steam_networtk_debug_to_log()] Service thread exiting.
+[INFO ] --- [2026-01-07 13:10:03] [cultLtd.odin:61:rl_trace_to_log()] TEXTURE: [ID 2] Unloaded texture data from VRAM (GPU)
+[INFO ] --- [2026-01-07 13:10:03] [cultLtd.odin:61:rl_trace_to_log()] SHADER: [ID 3] Default shader unloaded successfully
+[INFO ] --- [2026-01-07 13:10:03] [cultLtd.odin:61:rl_trace_to_log()] TEXTURE: [ID 1] Default texture unloaded successfully
+[INFO ] --- [2026-01-07 13:10:03] [cultLtd.odin:61:rl_trace_to_log()] Window closed successfully
+Shutting down low level socket/threading support.
+[INFO ] --- [2026-01-07 13:09:01] [steam.odin:46:steam_networtk_debug_to_log()] Service thread exiting.
+[INFO ] --- [2026-01-07 13:09:01] [cultLtd.odin:61:rl_trace_to_log()] TEXTURE: [ID 2] Unloaded texture data from VRAM (GPU)
+[INFO ] --- [2026-01-07 13:09:01] [cultLtd.odin:61:rl_trace_to_log()] SHADER: [ID 3] Default shader unloaded successfully
+[INFO ] --- [2026-01-07 13:09:01] [cultLtd.odin:61:rl_trace_to_log()] TEXTURE: [ID 1] Default texture unloaded successfully
+[INFO ] --- [2026-01-07 13:09:01] [cultLtd.odin:61:rl_trace_to_log()] Window closed successfully
+ [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
 [DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
 [DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
 [DEBUG] --- [2026-01-02 22:22:23] [cultLtd.odin:122:main()] 1
