@@ -130,6 +130,10 @@ steam_callback_upadate :: proc(ctx: ^CultCtx, arena: ^vmem.Arena) {
 					data := (^steam.LobbyEnter)(&param[0])
 
 					log.info("LobbyEnter", data)
+				case .LobbyInvite:
+					log.info("LobbyInvite")
+				case .GameLobbyJoinRequested:
+					log.info("LobbyJoinRequested")
 				case .LobbyCreated:
 					data := (^steam.LobbyCreated)(&param[0])
 					ok := steam.Matchmaking_SetLobbyData(
