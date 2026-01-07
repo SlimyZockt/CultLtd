@@ -1,5 +1,7 @@
+// Sacrifice other world beings to grow your factory
 package main
 
+import "base:intrinsics"
 import "base:runtime"
 import "core:c"
 import "core:flags"
@@ -14,11 +16,11 @@ import stbsp "vendor:stb/sprintf"
 import ase "./aseprite"
 import steam "./steamworks/"
 
-
 import "vendor:ggpo"
 
 LOGIC_FPS :: 60
 LOGIC_TICK_RATE :: 1.0 / LOGIC_FPS
+// STEAM_TICK_RATE :: 1.0 / 20
 
 LOG_PATH :: "berry.logs"
 STEAM :: #config(STEAM, false)
@@ -77,7 +79,7 @@ EntityId :: distinct u64
 TextureId :: distinct u64
 
 Entity :: struct {
-	dead:       bool,
+	generation: u32,
 	speed:      f32,
 	flags:      EntityFlags,
 	using pos:  [2]f32,
@@ -113,17 +115,12 @@ GameCtx :: struct {
 	entities: [dynamic]Entity,
 }
 
-MultiplayerCtx :: struct {
-	// test: steam.ENet,
-}
-
-
 CultCtx :: struct {
-	flags:             CultCtxFlags,
-	using game_ctx:    GameCtx,
-	using render_ctx:  RenderCtx,
-	using multiplayer: MultiplayerCtx,
-	keymap:            [KeyActions]rl.KeyboardKey,
+	flags:            CultCtxFlags,
+	using game_ctx:   GameCtx,
+	using render_ctx: RenderCtx,
+	using steam:      SteamCtx,
+	keymap:           [KeyActions]rl.KeyboardKey,
 }
 
 
@@ -165,9 +162,12 @@ main :: proc() {
 	rl.InitWindow(0, 0, "CultLtd.")
 	defer rl.CloseWindow()
 
+	ctx: CultCtx
+
 	when STEAM {
-		steam_init()
+		steam_init(&ctx.steam)
 	}
+
 
 	arena_err := vmem.arena_init_growing(&g_arena)
 	ensure(arena_err == nil)
@@ -175,16 +175,16 @@ main :: proc() {
 
 	monitor_id: i32
 	monitor_count := rl.GetMonitorCount()
-	if monitor_count > 1 {
-		for i in 0 ..= monitor_count {
-			if i + 1 > monitor_count do break
-			monitor_id = rl.GetMonitorHeight(monitor_id) > rl.GetMonitorHeight(i + 1) ? i : i + 1
+	monitor_height := rl.GetMonitorHeight(0)
+	for i in 0 ..= monitor_count {
+		new_height := rl.GetMonitorHeight(i)
+		if monitor_height < new_height {
+			monitor_id = i
+			monitor_height = new_height
 		}
-		rl.SetWindowMonitor(monitor_id)
 	}
+	rl.SetWindowMonitor(monitor_id)
 
-
-	ctx: CultCtx
 	ctx.render_size = {f32(rl.GetRenderWidth()), f32(rl.GetRenderHeight())}
 	ctx.flags = {}
 	ctx.entities = make([dynamic]Entity, 0, 128)
@@ -210,7 +210,7 @@ main :: proc() {
 	)
 	elapsed_time: f32
 
-	// rl.SetTargetFPS(60)
+	rl.SetTargetFPS(1000)
 
 	for !rl.WindowShouldClose() {
 		delta_time := rl.GetFrameTime()
@@ -218,6 +218,7 @@ main :: proc() {
 
 		for elapsed_time >= LOGIC_TICK_RATE {
 			elapsed_time -= LOGIC_TICK_RATE
+			steam_callback_upadate()
 			//TODO(abdul): sync server
 			if .Server in ctx.flags {
 				// logic_update_server()
@@ -266,6 +267,25 @@ logic_upadate_shared :: proc(delta_time: f32, ctx: ^CultCtx) {
 
 }
 
+steam_callback_upadate :: proc(ctx: ^CultCtx) {
+	h_pipe := steam.GetHSteamPipe()
+	steam.ManualDispatch_RunFrame(h_pipe)
+
+	msg: steam.CallbackMsg
+	for (steam.ManualDispatch_GetNextCallback(h_pipe, &msg)) {
+
+		if msg.iCallback == .SteamAPICallCompleted {
+			call_completed := transmute(^steam.SteamAPICallCompleted)callback.pubParam
+			log.info("CallResult: ", call_completed)
+            switch call_completed.iCallback {
+            case .LobbyEnter:
+                log.info("LobbyEnter")
+            }
+		}
+	}
+
+}
+
 
 render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
 	if rl.IsKeyPressed(ctx.keymap[.DebugCross]) {
@@ -295,25 +315,27 @@ render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
 		}
 	}
 
+
 	if rl.GuiButton(rl.Rectangle{ctx.render_size.x - 80, 5, 75, 60}, "host") {
+		_ = steam.Matchmaking_CreateLobby(ctx.matchmaking, .Private, 4)
+		// steam.Utils_GetAPICallResult()
+
+		steam.GameLobbyJoinRequested
+
 		log.debug("host")
-		nw_hd := steam.NetworkingMessages_SteamAPI()
 		id := steam.SteamNetworkingIdentity{}
-		steam.NetworkingIdentity_SetSteamID(&id, steam.User_GetSteamID(steam.User()))
+		// steam.NetworkingIdentity_SetSteamID(&id, steam.User_GetSteamID(steam.User()))
+		steam.NetworkingIdentity_SetGenericString(&id, "test")
 		msg := "hello from server"
-		log.debug("hello")
-		steam.NetworkingMessages_SendMessageToUser(nw_hd, &id, &msg, u32(len(msg)), 0, 0)
+		steam.NetworkingMessages_SendMessageToUser(
+			ctx.network_message,
+			&id,
+			&msg,
+			u32(len(msg)) + 1,
+			0,
+			0,
+		)
 	}
-	if rl.GuiButton(rl.Rectangle{ctx.render_size.x - 80, 70, 75, 60}, "connect") {
-		nw_hd := steam.NetworkingMessages_SteamAPI()
-
-
-		id := steam.SteamNetworkingIdentity{}
-		steam.NetworkingIdentity_SetSteamID(&id, steam.User_GetSteamID(steam.User()))
-		steam.NetworkingMessages_AcceptSessionWithUser(nw_hd, &id)
-		log.debug("connect")
-	}
-
 
 	if .DebugCross in ctx.flags {
 		rl.DrawLine(

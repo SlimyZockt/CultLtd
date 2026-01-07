@@ -18,7 +18,48 @@ steam_debug_text_hook :: proc "c" (severity: c.int, debugText: cstring) {
 }
 
 
-steam_init :: proc() {
+steam_networtk_debug_to_log :: proc "c" (
+	net_level: steam.ESteamNetworkingSocketsDebugOutputType,
+	msg: cstring,
+) {
+	context = g_ctx
+
+	level: log.Level
+	switch net_level {
+	case .Debug:
+		level = .Debug
+	case .Msg, .Verbose:
+		level = .Info
+	case .Warning, .Important:
+		level = .Warning
+	case .Error:
+		level = .Error
+	case .Bug:
+		level = .Fatal
+	case .None, .Everything, ._Force32Bit:
+		fallthrough
+	case:
+		log.panicf("unexpected log level %v", net_level)
+	}
+
+
+	context.logger.procedure(context.logger.data, level, string(msg), context.logger.options)
+}
+
+SteamCtx :: struct {
+	network_util:    ^steam.INetworkingUtils,
+	network:         ^steam.INetworking,
+	network_message: ^steam.INetworkingMessages,
+	client:          ^steam.IClient,
+	matchmaking:     ^steam.IMatchmaking,
+}
+// when STEAM {
+// } else {
+// 	SteamCtx :: struct {}
+// }
+
+
+steam_init :: proc(ctx: ^SteamCtx) {
 	if steam.RestartAppIfNecessary(steam.uAppIdInvalid) {
 		log.info("start through steam")
 		return
@@ -34,22 +75,25 @@ steam_init :: proc() {
 		)
 	}
 
-	steam.Client_SetWarningMessageHook(steam.Client(), steam_debug_text_hook)
+	ctx.client = steam.Client()
+	ctx.network = steam.Networking()
+	ctx.network_message = steam.NetworkingMessages_SteamAPI()
+	ctx.network_util = steam.NetworkingUtils_SteamAPI()
+	ctx.matchmaking = steam.Matchmaking()
+
+    steam.NetworkingSockets_RunCallbacks()
+
+	steam.Client_SetWarningMessageHook(ctx.client, steam_debug_text_hook)
 	steam.ManualDispatch_Init()
 
-	// friends_handel := steam.Friends()
-	// for i in 0 ..< steam.Friends_GetFriendCount(
-	// 	friends_handel,
-	// 	i32(steam.EFriendFlags.Immediate),
-	// ) {
-	// 	id := steam.Friends_GetFriendByIndex(
-	// 		friends_handel,
-	// 		i32(i),
-	// 		i32(steam.EFriendFlags.Immediate),
-	// 	)
-	// 	name := steam.Friends_GetFriendPersonaName(friends_handel, id)
-	// 	log.info(name)
-	// }
+	steam.NetworkingUtils_InitRelayNetworkAccess(ctx.network_util)
+	steam.NetworkingUtils_SetGlobalConfigValueInt32(ctx.network_util, .IP_AllowWithoutAuth, 1)
+	steam.NetworkingUtils_SetDebugOutputFunction(
+		ctx.network_util,
+		.Everything,
+		steam_networtk_debug_to_log,
+	)
+
 }
 
 steam_destroy :: proc() {
