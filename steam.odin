@@ -58,11 +58,11 @@ SteamCtx :: struct {
 	network_message: ^steam.INetworkingMessages,
 	client:          ^steam.IClient,
 	matchmaking:     ^steam.IMatchmaking,
-	steamid:         steam.AccountID,
-	lobbyid:         steam.CSteamID,
+	steam_id:        steam.CSteamID,
+	lobby_id:        steam.CSteamID,
 	lobby:           [4]steam.CSteamID,
 }
-// } else {.Client
+// } else {nClient
 // 	SteamCtx :: struct {}
 // }
 
@@ -89,7 +89,7 @@ steam_init :: proc(ctx: ^SteamCtx) {
 	ctx.network_util = steam.NetworkingUtils_SteamAPI()
 	ctx.matchmaking = steam.Matchmaking()
 	ctx.user = steam.User()
-
+	ctx.steam_id = steam.User_GetSteamID(ctx.user)
 
 	steam.Client_SetWarningMessageHook(ctx.client, steam_debug_text_hook)
 
@@ -169,15 +169,26 @@ steam_callback_handler :: proc(ctx: ^CultCtx, callback: ^steam.CallbackMsg) {
 		data := (^steam.LobbyChatUpdate)(callback.pubParam)
 		log.info(data.rgfChatMemberStateChange)
 		state := cast(steam.EChatMemberStateChange)(data.rgfChatMemberStateChange)
+		switch state {
+		case .Entered:
+			ctx.lobby_id = data.ulSteamIDLobby
+			{ 	// add_player
+				entity_add(&ctx.entities, Entity{flags = {.Sync}, size = {16, 32}, speed = 500})
+			}
+		case .Disconnected, .Left, .Kicked, .Banned:
+			ctx.lobby_id = 0
+		}
+
 
 	case .LobbyEnter:
 	case .GameLobbyJoinRequested:
 		data := (^steam.GameLobbyJoinRequested)(callback.pubParam)
 		_ = steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
 		assert(.Server not_in ctx.flags)
-		log.info(".Client")
 		ctx.flags += {.Client}
 		ctx.scene = .Game
+
+
 	}
 	log.info("Callback:", callback.iCallback)
 }

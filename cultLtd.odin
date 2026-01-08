@@ -5,11 +5,13 @@ import "base:intrinsics"
 import "base:runtime"
 import "core:c"
 import "core:flags"
+import "core:fmt"
 import "core:log"
 import "core:math/linalg"
 import vmem "core:mem/virtual"
 import old_os "core:os"
 import os "core:os/os2"
+import "core:testing"
 import rl "vendor:raylib"
 import stbsp "vendor:stb/sprintf"
 
@@ -70,23 +72,33 @@ rl_trace_to_log :: proc "c" (rl_level: rl.TraceLogLevel, message: cstring, args:
 EntityFlagBits :: enum u32 {
 	Controlabe,
 	Camera,
+	Sync,
+	Alive,
 	// Non;,
 }
 
 EntityFlags :: bit_set[EntityFlagBits;u32]
 
-EntityId :: distinct u64
 TextureId :: distinct u64
 
+EntityHandle :: struct {
+	id:         u64,
+	generation: u64,
+}
+
 Entity :: struct {
-	generation: u32,
-	speed:      f32,
-	flags:      EntityFlags,
-	id:         EntityId,
-	texture_id: TextureId,
-	using pos:  [2]f32,
-	size:       [2]f32,
-	// vel:       [2]f32,
+	generation:        u64,
+	speed:             f32,
+	flags:             EntityFlags,
+	texture_id:        TextureId,
+	using pos:         [2]f32,
+	size:              [2]f32,
+	NextFreeEntityIdx: Maybe(u64),
+}
+
+EntityList :: struct {
+	list:          [dynamic]Entity,
+	FreeEntityIdx: Maybe(u64),
 }
 
 CultCtxFlagBits :: enum u32 {
@@ -120,7 +132,7 @@ RenderCtx :: struct {
 }
 
 GameCtx :: struct {
-	entities: [dynamic]Entity,
+	entities: EntityList,
 }
 
 CultCtx :: struct {
@@ -131,6 +143,68 @@ CultCtx :: struct {
 	keymap:           [KeyActions]rl.KeyboardKey,
 }
 
+@(test)
+te :: proc(t: ^testing.T) {
+	context.logger = log.create_console_logger()
+	flags: EntityFlags = {.Alive}
+	log.warn(flags)
+
+	flags += {.Alive}
+	log.warn(flags)
+
+
+    testing.expect(t, true)
+}
+
+entity_add :: proc(
+	entities: ^EntityList,
+	entity: Entity,
+	allocator := context.allocator,
+) -> EntityHandle {
+
+
+	if idx, ok := entities.FreeEntityIdx.?; ok {
+		generation := entities.list[idx].generation + 1
+		entities.FreeEntityIdx = entities.list[idx].NextFreeEntityIdx
+
+		entities.list[idx].flags += {.Alive}
+		entities.list[idx] = entity
+		entities.list[idx].NextFreeEntityIdx = nil
+		entities.list[idx].generation = generation
+
+		return EntityHandle{idx, generation}
+	}
+
+
+	assert(entity.generation == 0)
+	assert(entity.NextFreeEntityIdx == nil)
+
+	append(&entities.list, entity)
+	idx := len(entities.list) - 1
+	entities.list[idx].flags += {.Alive}
+	assert(.Alive in entities.list[idx].flags)
+	return EntityHandle{u64(idx), 0}
+}
+
+entity_delete :: proc(entities: ^EntityList, entity_handle: EntityHandle) {
+	if entities.list[entity_handle.id].generation != entity_handle.generation {
+		log.error("delete not existing element")
+		return
+	}
+	entities.list[entity_handle.id].generation += 1
+
+	entities.list[entity_handle.id].NextFreeEntityIdx = entities.FreeEntityIdx
+	entities.FreeEntityIdx = entity_handle.id
+}
+
+entity_get :: proc(entities: ^EntityList, entity_handle: EntityHandle) -> ^Entity {
+	if entities.list[entity_handle.id].generation != entity_handle.generation {
+		log.error("Wrong generation entity")
+		return nil
+	}
+
+	return &entities.list[entity_handle.id]
+}
 
 HEADLESS :: #config(HEADLESS, false)
 
@@ -198,7 +272,8 @@ main :: proc() {
 
 	ctx.flags = {}
 	ctx.scene = .MainMenu
-	ctx.entities = make([dynamic]Entity, 0, 128)
+	ctx.entities.list = make([dynamic]Entity, 0, 128)
+	ctx.entities.FreeEntityIdx = nil
 	{ 	// set up default keybindings
 		ctx.keymap[.DebugCross] = .F2
 		ctx.keymap[.UP] = .W
@@ -210,15 +285,8 @@ main :: proc() {
 	ctx.cameras = {{offset = ctx.render_size / 2, zoom = 1}}
 	defer vmem.arena_destroy(&g_arena)
 
-	append(
-		&ctx.entities,
-		Entity {
-			flags = {.Controlabe, .Camera},
-			speed = 500,
-			size = {32, 64},
-			id = #hash("player", "fnv32a"),
-		},
-	)
+	entity_add(&ctx.entities, Entity{flags = {.Controlabe, .Camera}, speed = 500, size = {32, 64}})
+
 	elapsed_time: f32
 
 	rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), 30)
@@ -261,7 +329,7 @@ main :: proc() {
 
 
 logic_upadate_shared :: proc(delta_time: f32, ctx: ^CultCtx) {
-	for &entity in ctx.entities {
+	for &entity in ctx.entities.list {
 		if .Controlabe in entity.flags { 	// movement ctl
 			input: [2]f32
 			if rl.IsKeyDown(ctx.keymap[.UP]) do input.y -= 1
@@ -316,7 +384,8 @@ render_game :: proc(delta_time: f32, ctx: ^CultCtx) {
 	}
 
 
-	for &entity in ctx.entities {
+	for &entity in ctx.entities.list {
+		// entity := &entity_list
 		if .Camera in entity.flags {
 			ctx.cameras[0].target = entity.pos + (entity.size / 2)
 			rl.BeginMode2D(ctx.cameras[0])
