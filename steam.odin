@@ -88,8 +88,7 @@ steam_init :: proc(ctx: ^SteamCtx) {
 
 	steam.Client_SetWarningMessageHook(ctx.client, steam_debug_text_hook)
 
-	steam.NetworkingUtils_InitRelayNetworkAccess(ctx.network_util)
-	steam.NetworkingUtils_SetGlobalConfigValueInt32(ctx.network_util, .IP_AllowWithoutAuth, 1)
+	// steam.NetworkingUtils_InitRelayNetworkAccess(ctx.network_util)
 	steam.NetworkingUtils_SetDebugOutputFunction(
 		ctx.network_util,
 		.Everything,
@@ -114,72 +113,24 @@ steam_callback_upadate :: proc(ctx: ^CultCtx, arena: ^vmem.Arena) {
 		defer steam.ManualDispatch_FreeLastCallback(h_pipe)
 
 		if callback.iCallback == .SteamAPICallCompleted {
-			call_completed := transmute(^steam.SteamAPICallCompleted)callback.pubParam
+			completed_callback := cast(^steam.SteamAPICallCompleted)callback.pubParam
 			param := make([dynamic]byte, callback.cubParam)
 			failed: bool
-			if steam.ManualDispatch_GetAPICallResult(
+			ok := steam.ManualDispatch_GetAPICallResult(
 				h_pipe,
-				call_completed.hAsyncCall,
+				completed_callback.hAsyncCall,
 				raw_data(param[:]),
-				callback.cubParam,
-				call_completed.iCallback,
+				i32(completed_callback.cubParam),
+				completed_callback.iCallback,
 				&failed,
-			) {
-				log.info(call_completed.iCallback)
-				#partial switch call_completed.iCallback {
-				case .GameRichPresenceJoinRequested:
-					data := (^steam.GameLobbyJoinRequested)(&param[0])
-					steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
-					log.debug("Joined ")
-				case .LobbyChatUpdate:
-					data := (^steam.LobbyChatUpdate)(&param[0])
-					log.info("Entered:", data.ulSteamIDLobby)
-				case .LobbyEnter:
-					data := (^steam.LobbyEnter)(&param[0])
-					log.info("Entered Lobby:", data.ulSteamIDLobby)
-				case .GameLobbyJoinRequested:
-					data := (^steam.GameLobbyJoinRequested)(&param[0])
-					steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
-					log.debug("Joined ")
-				case .LobbyCreated:
-					data := (^steam.LobbyCreated)(&param[0])
-					// ok := steam.Matchmaking_SetLobbyData(
-					// 	ctx.matchmaking,
-					// 	data.ulSteamIDLobby,
-					// 	"Test",
-					// 	"Test",
-					// )
-					// log.debug(ok)
-					// ok = steam.Matchmaking_SetLobbyJoinable(
-					// 	ctx.matchmaking,
-					// 	data.ulSteamIDLobby,
-					// 	true,
-					// )
+			)
+			if failed || !ok do continue
+			steam_callback_complete_handle(ctx, completed_callback, (&param[0]))
 
-					log.info(data)
-				}
-			}
-
-			#partial switch call_completed.iCallback {
-			case .GameRichPresenceJoinRequested:
-				data := (^steam.GameLobbyJoinRequested)(&param[0])
-				steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
-				log.debug("Joined ")
-			case .LobbyChatUpdate:
-				data := (^steam.LobbyChatUpdate)(&param[0])
-				log.info("Entered:", data.ulSteamIDLobby)
-			case .LobbyEnter:
-				data := (^steam.LobbyEnter)(&param[0])
-				log.info("Entered Lobby:", data.ulSteamIDLobby)
-			case .GameLobbyJoinRequested:
-				data := (^steam.GameLobbyJoinRequested)(&param[0])
-				steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
-				log.debug("Joined ")
-			}
-			// log.info(call_completed.iCallback)
-			// }
 
 		}
+
+		steam_callback_handler(ctx, &callback)
 
 	}
 
@@ -187,4 +138,35 @@ steam_callback_upadate :: proc(ctx: ^CultCtx, arena: ^vmem.Arena) {
 
 steam_destroy :: proc() {
 	steam.Shutdown()
+	// steam.SteamGameServer_Shutdown()
+}
+
+steam_callback_complete_handle :: proc(
+	ctx: ^CultCtx,
+	callback: ^steam.SteamAPICallCompleted,
+	param: rawptr,
+) {
+	#partial switch callback.iCallback {
+	case .LobbyEnter:
+		data := (^steam.LobbyEnter)(param)
+	case .LobbyDataUpdate:
+	case .LobbyCreated:
+		data := (^steam.LobbyCreated)(param)
+	}
+	log.info("Completed Callback:", callback.iCallback)
+}
+
+
+steam_callback_handler :: proc(ctx: ^CultCtx, callback: ^steam.CallbackMsg) {
+	#partial switch callback.iCallback {
+	case .GameRichPresenceJoinRequested:
+	case .LobbyChatUpdate:
+		data := (^steam.LobbyChatUpdate)(callback.pubParam)
+		log.info(data)
+	case .LobbyEnter:
+	case .GameLobbyJoinRequested:
+		data := (^steam.GameLobbyJoinRequested)(callback.pubParam)
+		_ = steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
+	}
+	log.info("Callback:", callback.iCallback)
 }

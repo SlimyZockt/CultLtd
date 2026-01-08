@@ -262,7 +262,6 @@ main :: proc() {
 logic_upadate_shared :: proc(delta_time: f32, ctx: ^CultCtx) {
 	for &entity in ctx.entities {
 		if .Controlabe in entity.flags { 	// movement ctl
-
 			input: [2]f32
 			if rl.IsKeyDown(ctx.keymap[.UP]) do input.y -= 1
 			if rl.IsKeyDown(ctx.keymap[.DOWN]) do input.y += 1
@@ -276,9 +275,7 @@ logic_upadate_shared :: proc(delta_time: f32, ctx: ^CultCtx) {
 		}
 	}
 
-
 }
-
 
 render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
 	switch ctx.scene {
@@ -286,21 +283,31 @@ render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
 		render_game(delta_time, ctx)
 	case .MainMenu:
 		if rl.GuiButton(
-			rl.Rectangle{ctx.render_size.x / 2, (0 + ctx.render_size.y / 4), 200, 60},
+			rl.Rectangle{(ctx.render_size.x / 2) - 100, (0 + ctx.render_size.y / 4), 200, 60},
 			"Play",
 		) {
 			ctx.scene = .Game
 		}
 		when STEAM {
 			if rl.GuiButton(
-				rl.Rectangle{ctx.render_size.x / 2, (0 + ctx.render_size.y / 4) + 70, 200, 60},
+				rl.Rectangle {
+					(ctx.render_size.x / 2) - 100,
+					(0 + ctx.render_size.y / 4) + 70,
+					200,
+					60,
+				},
 				"Host",
 			) {
 				_ = steam.Matchmaking_CreateLobby(ctx.matchmaking, .FriendsOnly, 4)
 				ctx.scene = .Game
 			}
 			if rl.GuiButton(
-				rl.Rectangle{ctx.render_size.x / 2, (0 + ctx.render_size.y / 4) + 140, 200, 60},
+				rl.Rectangle {
+					(ctx.render_size.x / 2) - 100,
+					(0 + ctx.render_size.y / 4) + 140,
+					200,
+					60,
+				},
 				"Join",
 			) {
 				// _ = steam.Matchmaking_CreateLobby(ctx.matchmaking, .Private, 4)
