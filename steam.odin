@@ -50,18 +50,20 @@ steam_networtk_debug_to_log :: proc "c" (
 
 MAX_LOBBY_SIZE :: 8
 
+
 // when STEAM {
 SteamCtx :: struct {
 	user:            ^steam.IUser,
 	network_util:    ^steam.INetworkingUtils,
 	network:         ^steam.INetworking,
-	network_message: ^steam.INetworkingMessages,
+	network_sockets: ^steam.INetworkingSockets,
 	client:          ^steam.IClient,
 	matchmaking:     ^steam.IMatchmaking,
 	steam_id:        steam.CSteamID,
 	lobby_id:        steam.CSteamID,
-	lobby:           [4]steam.CSteamID,
 }
+
+
 // } else {nClient
 // 	SteamCtx :: struct {}
 // }
@@ -85,7 +87,7 @@ steam_init :: proc(ctx: ^SteamCtx) {
 
 	ctx.client = steam.Client()
 	ctx.network = steam.Networking()
-	ctx.network_message = steam.NetworkingMessages_SteamAPI()
+	ctx.network_sockets = steam.NetworkingSockets_SteamAPI()
 	ctx.network_util = steam.NetworkingUtils_SteamAPI()
 	ctx.matchmaking = steam.Matchmaking()
 	ctx.user = steam.User()
@@ -93,7 +95,6 @@ steam_init :: proc(ctx: ^SteamCtx) {
 
 	steam.Client_SetWarningMessageHook(ctx.client, steam_debug_text_hook)
 
-	// steam.NetworkingUtils_InitRelayNetworkAccess(ctx.network_util)
 	steam.NetworkingUtils_SetDebugOutputFunction(
 		ctx.network_util,
 		.Everything,
@@ -101,6 +102,7 @@ steam_init :: proc(ctx: ^SteamCtx) {
 	)
 
 	steam.ManualDispatch_Init()
+	steam.NetworkingUtils_InitRelayNetworkAccess(ctx.network_util)
 
 }
 
@@ -109,7 +111,6 @@ steam_callback_upadate :: proc(ctx: ^CultCtx, arena: ^vmem.Arena) {
 	temp := vmem.arena_temp_begin(arena)
 	defer vmem.arena_temp_end(temp)
 
-	temp_mem := make([dynamic]byte)
 	h_pipe := steam.GetHSteamPipe()
 	steam.ManualDispatch_RunFrame(h_pipe)
 
@@ -119,7 +120,7 @@ steam_callback_upadate :: proc(ctx: ^CultCtx, arena: ^vmem.Arena) {
 
 		if callback.iCallback == .SteamAPICallCompleted {
 			completed_callback := cast(^steam.SteamAPICallCompleted)callback.pubParam
-			param := make([dynamic]byte, callback.cubParam)
+			param := make([dynamic]byte, completed_callback.cubParam)
 			failed: bool
 			ok := steam.ManualDispatch_GetAPICallResult(
 				h_pipe,
@@ -172,6 +173,7 @@ steam_callback_handler :: proc(ctx: ^CultCtx, callback: ^steam.CallbackMsg) {
 		switch state {
 		case .Entered:
 			ctx.lobby_id = data.ulSteamIDLobby
+			// ctx.lobby
 			{ 	// add_player
 				entity_add(&ctx.entities, Entity{flags = {.Sync}, size = {16, 32}, speed = 500})
 			}
