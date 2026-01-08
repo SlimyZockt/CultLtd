@@ -143,19 +143,6 @@ CultCtx :: struct {
 	keymap:           [KeyActions]rl.KeyboardKey,
 }
 
-@(test)
-te :: proc(t: ^testing.T) {
-	context.logger = log.create_console_logger()
-	flags: EntityFlags = {.Alive}
-	log.warn(flags)
-
-	flags += {.Alive}
-	log.warn(flags)
-
-
-    testing.expect(t, true)
-}
-
 entity_add :: proc(
 	entities: ^EntityList,
 	entity: Entity,
@@ -294,6 +281,7 @@ main :: proc() {
 	for !rl.WindowShouldClose() {
 		delta_time := rl.GetFrameTime()
 		elapsed_time += delta_time
+		input_update(LOGIC_TICK_RATE, &ctx)
 
 		for elapsed_time >= LOGIC_TICK_RATE {
 			elapsed_time -= LOGIC_TICK_RATE
@@ -302,11 +290,44 @@ main :: proc() {
 			}
 			//TODO(abdul): sync server
 			if .Server in ctx.flags {
+				for i in 0 ..< steam.Matchmaking_GetNumLobbyMembers(
+					ctx.matchmaking,
+					ctx.lobby_id,
+				) {
+					user_id := steam.Matchmaking_GetLobbyMemberByIndex(
+						ctx.matchmaking,
+						ctx.lobby_id,
+						i,
+					)
+					if user_id == ctx.steam_id do continue
+					remote_id: steam.SteamNetworkingIdentity
+					steam.NetworkingIdentity_SetSteamID(&remote_id, user_id)
+					msg := "Hello"
+					steam.NetworkingMessages_SendMessageToUser(
+						ctx.network_message,
+						&remote_id,
+						&msg,
+						u32(len(msg)),
+						0,
+						0,
+					)
+				}
 				// logic_update_server()
 			} else {
 				// logic_update_client()
+				out: [10]^steam.SteamNetworkingMessage
+				steam.NetworkingMessages_ReceiveMessagesOnChannel(
+					ctx.network_message,
+					0,
+					&(out[0]),
+					10,
+				)
+				for i in out {
+					log.debug(i.pData)
+				}
 
 			}
+
 			logic_upadate_shared(LOGIC_TICK_RATE, &ctx)
 		}
 
@@ -327,10 +348,14 @@ main :: proc() {
 	}
 }
 
+input_update :: proc(delta_time: f32, ctx: ^CultCtx) {
+}
 
 logic_upadate_shared :: proc(delta_time: f32, ctx: ^CultCtx) {
 	for &entity in ctx.entities.list {
-		if .Controlabe in entity.flags { 	// movement ctl
+		// t := {.Controlabe} >= entity.flags
+		// if ({.Controlabe} >= entity.flags) { 	// movement ctl
+		if (EntityFlags{.Controlabe} <= entity.flags) { 	// movement ctl
 			input: [2]f32
 			if rl.IsKeyDown(ctx.keymap[.UP]) do input.y -= 1
 			if rl.IsKeyDown(ctx.keymap[.DOWN]) do input.y += 1
@@ -382,7 +407,6 @@ render_game :: proc(delta_time: f32, ctx: ^CultCtx) {
 			ctx.flags += {.DebugCross}
 		}
 	}
-
 
 	for &entity in ctx.entities.list {
 		// entity := &entity_list
