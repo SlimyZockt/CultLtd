@@ -48,15 +48,20 @@ steam_networtk_debug_to_log :: proc "c" (
 	context.logger.procedure(context.logger.data, level, string(msg), context.logger.options)
 }
 
-SteamCtx :: struct {
-	user:            ^steam.IUser,
-	network_util:    ^steam.INetworkingUtils,
-	network:         ^steam.INetworking,
-	network_message: ^steam.INetworkingMessages,
-	client:          ^steam.IClient,
-	matchmaking:     ^steam.IMatchmaking,
-}
+MAX_LOBBY_SIZE :: 8
+
 // when STEAM {
+	SteamCtx :: struct {
+		user:            ^steam.IUser,
+		network_util:    ^steam.INetworkingUtils,
+		network:         ^steam.INetworking,
+		network_message: ^steam.INetworkingMessages,
+		client:          ^steam.IClient,
+		matchmaking:     ^steam.IMatchmaking,
+		steamid:         steam.AccountID,
+		lobbyid:         steam.CSteamID,
+		lobby:           [4]steam.CSteamID,
+	}
 // } else {
 // 	SteamCtx :: struct {}
 // }
@@ -162,11 +167,16 @@ steam_callback_handler :: proc(ctx: ^CultCtx, callback: ^steam.CallbackMsg) {
 	case .GameRichPresenceJoinRequested:
 	case .LobbyChatUpdate:
 		data := (^steam.LobbyChatUpdate)(callback.pubParam)
-		log.info(data)
+		log.info(data.rgfChatMemberStateChange)
+		state := cast(steam.EChatMemberStateChange)(data.rgfChatMemberStateChange)
+
 	case .LobbyEnter:
 	case .GameLobbyJoinRequested:
 		data := (^steam.GameLobbyJoinRequested)(callback.pubParam)
 		_ = steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
+		assert(.Server in ctx.flags)
+		ctx.flags += {.Client}
+		ctx.scene = .Game
 	}
 	log.info("Callback:", callback.iCallback)
 }

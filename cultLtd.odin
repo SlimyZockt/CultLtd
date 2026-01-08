@@ -92,6 +92,7 @@ Entity :: struct {
 CultCtxFlagBits :: enum u32 {
 	DebugCross,
 	Server,
+	Client,
 }
 
 CultCtxFlags :: bit_set[CultCtxFlagBits;u32]
@@ -289,30 +290,16 @@ render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
 			ctx.scene = .Game
 		}
 		when STEAM {
-			if rl.GuiButton(
-				rl.Rectangle {
-					(ctx.render_size.x / 2) - 100,
-					(0 + ctx.render_size.y / 4) + 70,
-					200,
-					60,
-				},
-				"Host",
-			) {
+			x := (ctx.render_size.x / 2) - 100
+			y := (0 + ctx.render_size.y / 4) + 70
+			if rl.GuiButton(rl.Rectangle{x, y, 200, 60}, "Host") {
 				_ = steam.Matchmaking_CreateLobby(ctx.matchmaking, .FriendsOnly, 4)
 				ctx.scene = .Game
+				assert(.Client in ctx.flags)
+				ctx.flags += {.Server}
 			}
-			if rl.GuiButton(
-				rl.Rectangle {
-					(ctx.render_size.x / 2) - 100,
-					(0 + ctx.render_size.y / 4) + 140,
-					200,
-					60,
-				},
-				"Join",
-			) {
-				// _ = steam.Matchmaking_CreateLobby(ctx.matchmaking, .Private, 4)
+			if rl.GuiButton(rl.Rectangle{x, y + 70, 200, 60}, "Join") {
 				steam.Friends_ActivateGameOverlay(steam.Friends(), "friends")
-				ctx.scene = .Game
 			}
 		}
 	}
