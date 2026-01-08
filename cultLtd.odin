@@ -295,7 +295,7 @@ render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
 			if rl.GuiButton(rl.Rectangle{x, y, 200, 60}, "Host") {
 				_ = steam.Matchmaking_CreateLobby(ctx.matchmaking, .FriendsOnly, 4)
 				ctx.scene = .Game
-				assert(.Client in ctx.flags)
+				assert(.Client not_in ctx.flags)
 				ctx.flags += {.Server}
 			}
 			if rl.GuiButton(rl.Rectangle{x, y + 70, 200, 60}, "Join") {

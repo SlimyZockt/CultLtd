@@ -51,18 +51,18 @@ steam_networtk_debug_to_log :: proc "c" (
 MAX_LOBBY_SIZE :: 8
 
 // when STEAM {
-	SteamCtx :: struct {
-		user:            ^steam.IUser,
-		network_util:    ^steam.INetworkingUtils,
-		network:         ^steam.INetworking,
-		network_message: ^steam.INetworkingMessages,
-		client:          ^steam.IClient,
-		matchmaking:     ^steam.IMatchmaking,
-		steamid:         steam.AccountID,
-		lobbyid:         steam.CSteamID,
-		lobby:           [4]steam.CSteamID,
-	}
-// } else {
+SteamCtx :: struct {
+	user:            ^steam.IUser,
+	network_util:    ^steam.INetworkingUtils,
+	network:         ^steam.INetworking,
+	network_message: ^steam.INetworkingMessages,
+	client:          ^steam.IClient,
+	matchmaking:     ^steam.IMatchmaking,
+	steamid:         steam.AccountID,
+	lobbyid:         steam.CSteamID,
+	lobby:           [4]steam.CSteamID,
+}
+// } else {.Client
 // 	SteamCtx :: struct {}
 // }
 
@@ -174,7 +174,8 @@ steam_callback_handler :: proc(ctx: ^CultCtx, callback: ^steam.CallbackMsg) {
 	case .GameLobbyJoinRequested:
 		data := (^steam.GameLobbyJoinRequested)(callback.pubParam)
 		_ = steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
-		assert(.Server in ctx.flags)
+		assert(.Server not_in ctx.flags)
+		log.info(".Client")
 		ctx.flags += {.Client}
 		ctx.scene = .Game
 	}
