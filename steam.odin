@@ -107,8 +107,8 @@ steam_init :: proc(ctx: ^SteamCtx) {
 }
 
 steam_callback_upadate :: proc(ctx: ^CultCtx, arena: ^vmem.Arena) {
-	context.allocator = vmem.arena_allocator(arena)
 	temp := vmem.arena_temp_begin(arena)
+	context.allocator = vmem.arena_allocator(arena)
 	defer vmem.arena_temp_end(temp)
 
 	h_pipe := steam.GetHSteamPipe()
@@ -132,8 +132,7 @@ steam_callback_upadate :: proc(ctx: ^CultCtx, arena: ^vmem.Arena) {
 			)
 			if failed || !ok do continue
 			steam_callback_complete_handle(ctx, completed_callback, (&param[0]))
-
-
+			continue
 		}
 
 		steam_callback_handler(ctx, &callback)
@@ -155,6 +154,11 @@ steam_callback_complete_handle :: proc(
 	#partial switch callback.iCallback {
 	case .LobbyEnter:
 		data := (^steam.LobbyEnter)(param)
+		id: steam.SteamNetworkingIdentity
+		steam.NetworkingIdentity_SetSteamID(&id, data.ulSteamIDLobby)
+		steam.NetworkingSockets_ConnectP2P(ctx.network_sockets, &id, 0, 0, nil)
+		ctx.player_count += 1
+		ctx.player_id = ctx.player_count
 	case .LobbyDataUpdate:
 	case .LobbyCreated:
 		data := (^steam.LobbyCreated)(param)
@@ -166,6 +170,15 @@ steam_callback_complete_handle :: proc(
 steam_callback_handler :: proc(ctx: ^CultCtx, callback: ^steam.CallbackMsg) {
 	#partial switch callback.iCallback {
 	case .GameRichPresenceJoinRequested:
+	case .SteamNetConnectionStatusChangedCallback:
+		data := (^steam.SteamNetConnectionStatusChangedCallback)(callback.pubParam)
+		if data.info.eState == .Connected { 	// add_player
+			entity_add(
+				&ctx.entities,
+				Entity{flags = {.Sync, .Controlabe}, size = {16, 32}, speed = 500},
+			)
+		}
+	// if data.info
 	case .LobbyChatUpdate:
 		data := (^steam.LobbyChatUpdate)(callback.pubParam)
 		log.info(data.rgfChatMemberStateChange)
@@ -173,16 +186,10 @@ steam_callback_handler :: proc(ctx: ^CultCtx, callback: ^steam.CallbackMsg) {
 		switch state {
 		case .Entered:
 			ctx.lobby_id = data.ulSteamIDLobby
-			// ctx.lobby
-			{ 	// add_player
-				entity_add(&ctx.entities, Entity{flags = {.Sync}, size = {16, 32}, speed = 500})
-			}
+		// ctx.lobby
 		case .Disconnected, .Left, .Kicked, .Banned:
 			ctx.lobby_id = 0
 		}
-
-
-	case .LobbyEnter:
 	case .GameLobbyJoinRequested:
 		data := (^steam.GameLobbyJoinRequested)(callback.pubParam)
 		_ = steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
@@ -193,4 +200,6 @@ steam_callback_handler :: proc(ctx: ^CultCtx, callback: ^steam.CallbackMsg) {
 
 	}
 	log.info("Callback:", callback.iCallback)
+
+
 }

@@ -5,13 +5,13 @@ import "base:intrinsics"
 import "base:runtime"
 import "core:c"
 import "core:flags"
-import "core:fmt"
 import "core:log"
 import "core:math/linalg"
 import vmem "core:mem/virtual"
 import old_os "core:os"
 import os "core:os/os2"
-import "core:testing"
+import "core:prof/spall"
+import "core:sync"
 import rl "vendor:raylib"
 import stbsp "vendor:stb/sprintf"
 
@@ -140,13 +140,14 @@ RenderCtx :: struct {
 }
 
 CultCtx :: struct {
-	player_count:     u32,
+	player_id:        u8,
+	player_count:     u8,
 	flags:            CultCtxFlags,
 	using render_ctx: RenderCtx,
 	using steam:      SteamCtx,
 	entities:         EntityList,
 	keymap:           [KeyActions]rl.KeyboardKey,
-	lobby:            map[u64]Player,
+	lobby:            [MaxPlayerCount]Player,
 }
 
 
@@ -206,6 +207,27 @@ HEADLESS :: #config(HEADLESS, false)
 g_cult_debug := #config(CULT_DEBUG, ODIN_DEBUG)
 g_ctx: runtime.Context
 g_arena: vmem.Arena
+spall_ctx: spall.Context
+
+@(thread_local)
+spall_buffer: spall.Buffer
+
+@(instrumentation_enter)
+spall_enter :: proc "contextless" (
+	proc_address, call_site_return_address: rawptr,
+	loc: runtime.Source_Code_Location,
+) {
+	spall._buffer_begin(&spall_ctx, &spall_buffer, "", "", loc)
+}
+
+@(instrumentation_exit)
+spall_exit :: proc "contextless" (
+	proc_address, call_site_return_address: rawptr,
+	loc: runtime.Source_Code_Location,
+) {
+	spall._buffer_end(&spall_ctx, &spall_buffer)
+}
+
 
 main :: proc() {
 	g_ctx = context
@@ -227,6 +249,16 @@ main :: proc() {
 	}
 	context = g_ctx
 
+	spall_ctx = spall.context_create("trace.spall")
+	defer spall.context_destroy(&spall_ctx)
+
+
+	buffer_backing := make([]u8, spall.BUFFER_DEFAULT_SIZE)
+	defer delete(buffer_backing)
+
+	spall_buffer = spall.buffer_create(buffer_backing, u32(sync.current_thread_id()))
+	defer spall.buffer_destroy(&spall_ctx, &spall_buffer)
+
 
 	when ODIN_DEBUG {
 		rl.SetConfigFlags({.BORDERLESS_WINDOWED_MODE})
@@ -243,6 +275,7 @@ main :: proc() {
 		flags        = {},
 		scene        = .MainMenu,
 		player_count = 1,
+		player_id    = 0,
 	}
 
 	when STEAM {
@@ -268,7 +301,7 @@ main :: proc() {
 	rl.SetWindowSize(i32(ctx.render_size.x), i32(ctx.render_size.y))
 	rl.SetWindowMonitor(monitor_id)
 
-	ctx.lobby = make(map[u64]Player)
+	// ctx.lobby = make(map[u64]Player)
 	ctx.entities.FreeEntityIdx = nil
 	ctx.entities.list = make([dynamic]Entity, 0, 128)
 	{ 	// set up default keybindings
@@ -296,7 +329,6 @@ main :: proc() {
 
 		input_update(LOGIC_TICK_RATE, &ctx)
 
-
 		for elapsed_net_time >= NET_TICK_RATE {
 			elapsed_net_time -= NET_TICK_RATE
 			when STEAM {
@@ -309,8 +341,8 @@ main :: proc() {
 				// logic_update_client()
 			}
 
-			logic_upadate(LOGIC_TICK_RATE, &ctx)
 		}
+
 
 		for elapsed_logic_time >= LOGIC_TICK_RATE {
 			elapsed_logic_time -= LOGIC_TICK_RATE
@@ -327,24 +359,31 @@ main :: proc() {
 
 			rl.DrawFPS(0, 0)
 		}
+		spall.SCOPED_EVENT(&spall_ctx, &spall_buffer, #procedure)
+
 	}
 
 	when STEAM {
 		steam_destroy()
 	}
+
 }
 
 input_update :: proc(delta_time: f32, ctx: ^CultCtx) {
-	player := ctx.lobby[ctx.steam_id]
+	input := &ctx.lobby[ctx.player_id].input_down
+	// #unroll for dir in KeyActions {
+	// 		if rl.IsKeyDown(ctx.keymap[dir]) {
+	// 			player.input_down += KeyDown{dir}
+	// 		} else {
+	// 			player.input_down -= KeyDown{dir}
+	// 		}
+	// 	}
 
-	#unroll for dir in KeyActions {
-		if rl.IsKeyDown(ctx.keymap[dir]) {
-			player.input_down += KeyDown{dir}
-		} else {
-			player.input_down -= KeyDown{dir}
-		}
-	}
-	ctx.lobby[ctx.steam_id] = player
+	input^ = rl.IsKeyDown(ctx.keymap[.UP]) ? input^ + {.UP} : input^ - {.UP}
+	input^ = rl.IsKeyDown(ctx.keymap[.DOWN]) ? input^ + {.DOWN} : input^ - {.DOWN}
+	input^ = rl.IsKeyDown(ctx.keymap[.LEFT]) ? input^ + {.LEFT} : input^ - {.LEFT}
+	input^ = rl.IsKeyDown(ctx.keymap[.RIGHT]) ? input^ + {.RIGHT} : input^ - {.RIGHT}
+
 
 	if rl.IsKeyPressed(ctx.keymap[.DebugCross]) {
 		if .DebugCross in ctx.flags {
@@ -360,7 +399,7 @@ logic_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
 		if (EntityFlags{.Controlabe} <= entity.flags) { 	// movement ctl
 			input: [2]f32
 
-			input_down := ctx.lobby[ctx.steam_id].input_down
+			input_down := ctx.lobby[ctx.player_id].input_down
 			if .UP in input_down do input.y -= 1
 			if .DOWN in input_down do input.y += 1
 			if .RIGHT in input_down do input.x += 1
