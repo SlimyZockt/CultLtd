@@ -16,7 +16,7 @@ import rl "vendor:raylib"
 import stbsp "vendor:stb/sprintf"
 
 import ase "./aseprite"
-import steam "./steamworks/"
+import steam "./steam/"
 
 import "vendor:ggpo"
 
@@ -109,7 +109,7 @@ CultCtxFlagBits :: enum u32 {
 
 CultCtxFlags :: bit_set[CultCtxFlagBits;u32]
 
-KeyActions :: enum u8 {
+Actions :: enum u8 {
 	DebugCross,
 	UP,
 	DOWN,
@@ -125,11 +125,11 @@ Scenes :: enum u32 {
 
 MaxPlayerCount :: 4
 MaxInputQueue :: 8
-KeyDown :: bit_set[KeyActions;u32]
+ActionToggles :: bit_set[Actions;u32]
 Player :: struct {
-	input_down:  KeyDown,
-	id:          u64,
-	input_queue: [MaxInputQueue]KeyActions,
+	input_down:    ActionToggles,
+	input_pressed: ActionToggles,
+	id:            u64,
 }
 
 RenderCtx :: struct {
@@ -144,9 +144,9 @@ CultCtx :: struct {
 	player_count:     u8,
 	flags:            CultCtxFlags,
 	using render_ctx: RenderCtx,
-	using steam:      SteamCtx,
+	steam:            steam.SteamCtx,
 	entities:         EntityList,
-	keymap:           [KeyActions]rl.KeyboardKey,
+	keymap:           [Actions]rl.KeyboardKey,
 	lobby:            [MaxPlayerCount]Player,
 }
 
@@ -248,6 +248,7 @@ main :: proc() {
 		ase.genereate_png_from_ase("aseprite", "./assets/")
 	}
 	context = g_ctx
+	steam.steam_ctx = context
 
 	spall_ctx = spall.context_create("trace.spall")
 	defer spall.context_destroy(&spall_ctx)
@@ -260,6 +261,13 @@ main :: proc() {
 	defer spall.buffer_destroy(&spall_ctx, &spall_buffer)
 
 
+	ctx := CultCtx {
+		flags        = {},
+		scene        = .MainMenu,
+		player_count = 1,
+		player_id    = 0,
+	}
+
 	when ODIN_DEBUG {
 		rl.SetConfigFlags({.BORDERLESS_WINDOWED_MODE})
 	} else {
@@ -269,19 +277,9 @@ main :: proc() {
 	rl.SetTraceLogLevel(.ALL)
 	rl.SetTraceLogCallback(rl_trace_to_log)
 	rl.InitWindow(0, 0, "CultLtd.")
+	rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), 30)
+	rl.SetTargetFPS(500)
 	defer rl.CloseWindow()
-
-	ctx := CultCtx {
-		flags        = {},
-		scene        = .MainMenu,
-		player_count = 1,
-		player_id    = 0,
-	}
-
-	when STEAM {
-		steam_init(&ctx.steam)
-	}
-
 	arena_err := vmem.arena_init_growing(&g_arena)
 	ensure(arena_err == nil)
 	context.allocator = vmem.arena_allocator(&g_arena)
@@ -320,20 +318,30 @@ main :: proc() {
 	elapsed_logic_time: f32
 	elapsed_net_time: f32
 
-	rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), 30)
-	rl.SetTargetFPS(500)
+	when STEAM {
+		steam.init(&ctx.steam)
+	}
 	for !rl.WindowShouldClose() {
 		delta_time := rl.GetFrameTime()
 		elapsed_logic_time += delta_time
 		elapsed_net_time += delta_time
 
-		input_update(LOGIC_TICK_RATE, &ctx)
+		update_input(LOGIC_TICK_RATE, &ctx)
 
 		for elapsed_net_time >= NET_TICK_RATE {
 			elapsed_net_time -= NET_TICK_RATE
 			when STEAM {
-				steam_callback_upadate(&ctx, &g_arena)
+				events := steam.upadate_callback(&ctx.steam, &g_arena)
+				switch events {
+				case .GameEntered:
+					entity_add(
+						&ctx.entities,
+						Entity{flags = {.Sync, .Controlabe}, size = {16, 32}, speed = 500},
+					)
+				case .GameLeft:
+				}
 			}
+
 
 			if .Server in ctx.flags {
 				// logic_update_server()
@@ -346,7 +354,7 @@ main :: proc() {
 
 		for elapsed_logic_time >= LOGIC_TICK_RATE {
 			elapsed_logic_time -= LOGIC_TICK_RATE
-			logic_upadate(LOGIC_TICK_RATE, &ctx)
+			upadate_logic(LOGIC_TICK_RATE, &ctx)
 		}
 
 
@@ -355,7 +363,7 @@ main :: proc() {
 			rl.ClearBackground(rl.WHITE)
 			defer rl.EndDrawing()
 
-			render_upadate(delta_time, &ctx)
+			upadate_render(delta_time, &ctx)
 
 			rl.DrawFPS(0, 0)
 		}
@@ -364,20 +372,13 @@ main :: proc() {
 	}
 
 	when STEAM {
-		steam_destroy()
+		steam.destroy(ctx.steam)
 	}
 
 }
 
-input_update :: proc(delta_time: f32, ctx: ^CultCtx) {
+update_input :: proc(delta_time: f32, ctx: ^CultCtx) {
 	input := &ctx.lobby[ctx.player_id].input_down
-	// #unroll for dir in KeyActions {
-	// 		if rl.IsKeyDown(ctx.keymap[dir]) {
-	// 			player.input_down += KeyDown{dir}
-	// 		} else {
-	// 			player.input_down -= KeyDown{dir}
-	// 		}
-	// 	}
 
 	input^ = rl.IsKeyDown(ctx.keymap[.UP]) ? input^ + {.UP} : input^ - {.UP}
 	input^ = rl.IsKeyDown(ctx.keymap[.DOWN]) ? input^ + {.DOWN} : input^ - {.DOWN}
@@ -394,7 +395,7 @@ input_update :: proc(delta_time: f32, ctx: ^CultCtx) {
 	}
 }
 
-logic_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
+upadate_logic :: proc(delta_time: f32, ctx: ^CultCtx) {
 	for &entity in ctx.entities.list {
 		if (EntityFlags{.Controlabe} <= entity.flags) { 	// movement ctl
 			input: [2]f32
@@ -414,10 +415,10 @@ logic_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
 
 }
 
-render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
+upadate_render :: proc(delta_time: f32, ctx: ^CultCtx) {
 	switch ctx.scene {
 	case .Game:
-		render_game_scene(delta_time, ctx)
+		update_game_scene(delta_time, ctx)
 	case .MainMenu:
 		if rl.GuiButton(
 			rl.Rectangle{(ctx.render_size.x / 2) - 100, (0 + ctx.render_size.y / 4), 200, 60},
@@ -429,14 +430,12 @@ render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
 			x := (ctx.render_size.x / 2) - 100
 			y := (0 + ctx.render_size.y / 4) + 70
 			if rl.GuiButton(rl.Rectangle{x, y, 200, 60}, "Host") {
-				_ = steam.Matchmaking_CreateLobby(ctx.matchmaking, .FriendsOnly, 4)
-				steam.NetworkingSockets_CreateListenSocketP2P(ctx.network_sockets, 0, 0, nil)
+				steam.host(&ctx.steam)
+
+
 				ctx.scene = .Game
 				assert(.Client not_in ctx.flags)
 				ctx.flags += {.Server}
-			}
-			if rl.GuiButton(rl.Rectangle{x, y + 70, 200, 60}, "Join") {
-				steam.Friends_ActivateGameOverlay(steam.Friends(), "friends")
 			}
 		}
 	}
@@ -461,9 +460,8 @@ render_upadate :: proc(delta_time: f32, ctx: ^CultCtx) {
 
 }
 
-render_game_scene :: proc(delta_time: f32, ctx: ^CultCtx) {
+update_game_scene :: proc(delta_time: f32, ctx: ^CultCtx) {
 	for &entity in ctx.entities.list {
-		// entity := &entity_list
 		if .Camera in entity.flags {
 			ctx.cameras[0].target = entity.pos + (entity.size / 2)
 			rl.BeginMode2D(ctx.cameras[0])
