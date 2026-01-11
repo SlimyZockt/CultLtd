@@ -18,6 +18,7 @@ SteamCtx :: struct {
 	network_sockets: ^steam.INetworkingSockets,
 	client:          ^steam.IClient,
 	matchmaking:     ^steam.IMatchmaking,
+	friends:         ^steam.IFriends,
 	steam_id:        steam.CSteamID,
 	lobby_id:        steam.CSteamID,
 	socket:          steam.HSteamListenSocket,
@@ -249,6 +250,11 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 			nil,
 		)
 		_ = steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
+		log.infof(
+			"User %s (%s) is trying to connect.",
+			steam.Friends_GetFriendPersonaName(ctx.friends, data.steamIDFriend),
+			data.steamIDFriend,
+		)
 
 	}
 	log.info("Callback:", callback.iCallback)
