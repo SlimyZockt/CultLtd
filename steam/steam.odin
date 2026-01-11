@@ -96,6 +96,7 @@ init :: proc(ctx: ^SteamCtx) {
 	ctx.network_util = steam.NetworkingUtils_SteamAPI()
 	ctx.matchmaking = steam.Matchmaking()
 	ctx.user = steam.User()
+	ctx.friends = steam.Friends()
 	ctx.steam_id = steam.User_GetSteamID(ctx.user)
 	ctx.socket = steam.HSteamListenSocket_Invalid
 	ctx.connection = steam.HSteamNetConnection_Invalid
@@ -250,13 +251,11 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 			nil,
 		)
 		_ = steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
-		log.infof(
-			"User %s (%s) is trying to connect.",
-			steam.Friends_GetFriendPersonaName(ctx.friends, data.steamIDFriend),
-			data.steamIDFriend,
-		)
-
+		assert(!steam.NetworkingIdentity_IsInvalid(&ctx.host_identity))
+		name := steam.Friends_GetFriendPersonaName(ctx.friends, data.steamIDFriend)
+		log.infof("trying to connect to user %v (%v).", name, data.steamIDFriend)
 	}
+
 	log.info("Callback:", callback.iCallback)
 }
 
