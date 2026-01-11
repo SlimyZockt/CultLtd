@@ -21,6 +21,7 @@ SteamCtx :: struct {
 	steam_id:        steam.CSteamID,
 	lobby_id:        steam.CSteamID,
 	socket:          steam.HSteamListenSocket,
+	poll_group:      steam.HSteamNetPollGroup,
 	user_identity:   steam.SteamNetworkingIdentity,
 	host_identity:   steam.SteamNetworkingIdentity,
 	connection:      steam.HSteamNetConnection,
@@ -111,6 +112,10 @@ init :: proc(ctx: ^SteamCtx) {
 	steam.ManualDispatch_Init()
 	steam.NetworkingUtils_InitRelayNetworkAccess(ctx.network_util)
 
+	// init socket
+	ctx.socket = steam.NetworkingSockets_CreateListenSocketP2P(ctx.network_sockets, 0, 0, nil)
+	ctx.poll_group = steam.NetworkingSockets_CreatePollGroup(ctx.network_sockets)
+
 }
 
 upadate_callback :: proc(ctx: ^SteamCtx, arena: ^vmem.Arena) {
@@ -165,13 +170,6 @@ callback_complete_handle :: proc(
 		data := (^steam.LobbyEnter)(param)
 		log.debug(steam.EChatRoomEnterResponse(data.EChatRoomEnterResponse))
 		assert(data.EChatRoomEnterResponse == u32(steam.EChatRoomEnterResponse.Success))
-		id: steam.SteamNetworkingIdentity
-		steam.NetworkingIdentity_SetSteamID(
-			&id,
-			steam.Matchmaking_GetLobbyOwner(ctx.matchmaking, ctx.lobby_id),
-		)
-
-		steam.NetworkingSockets_ConnectP2P(ctx.network_sockets, &id, 0, 0, nil)
 	case .LobbyDataUpdate:
 	case .LobbyCreated:
 		data := (^steam.LobbyCreated)(param)
@@ -239,9 +237,9 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 			log.infof("%v left", data.ulSteamIDUserChanged)
 		// ctx.lobby_id = 0
 		}
-	case .GameLobbyJoinRequested: // connect to peer
+	case .GameLobbyJoinRequested:
+		// connect to peer
 		data := (^steam.GameLobbyJoinRequested)(callback.pubParam)
-		_ = steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
 		steam.NetworkingIdentity_SetSteamID(&ctx.host_identity, data.steamIDFriend)
 		ctx.connection = steam.NetworkingSockets_ConnectP2P(
 			ctx.network_sockets,
@@ -250,26 +248,25 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 			0,
 			nil,
 		)
+		_ = steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
 
 	}
 	log.info("Callback:", callback.iCallback)
 }
 
-
 host :: proc(ctx: ^SteamCtx) {
-	ctx.socket = steam.NetworkingSockets_CreateListenSocketP2P(ctx.network_sockets, 0, 0, nil)
 	_ = steam.Matchmaking_CreateLobby(ctx.matchmaking, .FriendsOnly, 4)
 }
 
 
-connect_to_peer :: proc(ctx: ^SteamCtx) {
-	id: steam.SteamNetworkingIdentity
-	steam.NetworkingIdentity_SetSteamID(
-		&id,
-		steam.Matchmaking_GetLobbyOwner(ctx.matchmaking, ctx.lobby_id),
-	)
-	ctx.connection = steam.NetworkingSockets_ConnectP2P(ctx.network_sockets, &id, 0, 0, nil)
-}
+// connect_to_peer :: proc(ctx: ^SteamCtx) {
+// 	id: steam.SteamNetworkingIdentity
+// 	steam.NetworkingIdentity_SetSteamID(
+// 		&id,
+// 		steam.Matchmaking_GetLobbyOwner(ctx.matchmaking, ctx.lobby_id),
+// 	)
+// 	ctx.connection = steam.NetworkingSockets_ConnectP2P(ctx.network_sockets, &id, 0, 0, nil)
+// }
 
 write :: proc(ctx: ^SteamCtx, data: []u8, allocator := context.allocator) {
 }
