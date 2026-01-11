@@ -27,47 +27,6 @@ NET_TICK_RATE :: 1.0 / 30
 LOG_PATH :: "berry.logs"
 STEAM :: #config(STEAM, false)
 
-rl_trace_to_log :: proc "c" (rl_level: rl.TraceLogLevel, message: cstring, args: ^c.va_list) {
-	context = g_ctx
-
-	level: log.Level
-	switch rl_level {
-	case .TRACE, .DEBUG:
-		level = .Debug
-	case .INFO:
-		level = .Info
-	case .WARNING:
-		level = .Warning
-	case .ERROR:
-		level = .Error
-	case .FATAL:
-		level = .Fatal
-	case .ALL, .NONE:
-		fallthrough
-	case:
-		log.panicf("unexpected log level %v", rl_level)
-	}
-
-	@(static) buf: [dynamic]byte
-	log_len: i32
-	for {
-		buf_len := i32(len(buf))
-		log_len = stbsp.vsnprintf(raw_data(buf), buf_len, message, args)
-		if log_len <= buf_len {
-			break
-		}
-
-		non_zero_resize(&buf, max(128, len(buf) * 2))
-	}
-
-	context.logger.procedure(
-		context.logger.data,
-		level,
-		string(buf[:log_len]),
-		context.logger.options,
-	)
-}
-
 
 EntityFlagBits :: enum u32 {
 	Controlabe,
@@ -144,12 +103,51 @@ CultCtx :: struct {
 	player_count:     u8,
 	flags:            CultCtxFlags,
 	using render_ctx: RenderCtx,
-	steam:            steam.SteamCtx,
 	entities:         EntityList,
 	keymap:           [Actions]rl.KeyboardKey,
 	lobby:            [MaxPlayerCount]Player,
 }
 
+rl_trace_to_log :: proc "c" (rl_level: rl.TraceLogLevel, message: cstring, args: ^c.va_list) {
+	context = g_ctx
+
+	level: log.Level
+	switch rl_level {
+	case .TRACE, .DEBUG:
+		level = .Debug
+	case .INFO:
+		level = .Info
+	case .WARNING:
+		level = .Warning
+	case .ERROR:
+		level = .Error
+	case .FATAL:
+		level = .Fatal
+	case .ALL, .NONE:
+		fallthrough
+	case:
+		log.panicf("unexpected log level %v", rl_level)
+	}
+
+	@(static) buf: [dynamic]byte
+	log_len: i32
+	for {
+		buf_len := i32(len(buf))
+		log_len = stbsp.vsnprintf(raw_data(buf), buf_len, message, args)
+		if log_len <= buf_len {
+			break
+		}
+
+		non_zero_resize(&buf, max(128, len(buf) * 2))
+	}
+
+	context.logger.procedure(
+		context.logger.data,
+		level,
+		string(buf[:log_len]),
+		context.logger.options,
+	)
+}
 
 entity_add :: proc(
 	entities: ^EntityList,
@@ -207,7 +205,13 @@ HEADLESS :: #config(HEADLESS, false)
 g_cult_debug := #config(CULT_DEBUG, ODIN_DEBUG)
 g_ctx: runtime.Context
 g_arena: vmem.Arena
-spall_ctx: spall.Context
+g_spall_ctx: spall.Context
+g_game_ctx := CultCtx {
+	flags        = {},
+	scene        = .MainMenu,
+	player_count = 1,
+	player_id    = 0,
+}
 
 @(thread_local)
 spall_buffer: spall.Buffer
@@ -217,7 +221,7 @@ spall_enter :: proc "contextless" (
 	proc_address, call_site_return_address: rawptr,
 	loc: runtime.Source_Code_Location,
 ) {
-	spall._buffer_begin(&spall_ctx, &spall_buffer, "", "", loc)
+	spall._buffer_begin(&g_spall_ctx, &spall_buffer, "", "", loc)
 }
 
 @(instrumentation_exit)
@@ -225,7 +229,7 @@ spall_exit :: proc "contextless" (
 	proc_address, call_site_return_address: rawptr,
 	loc: runtime.Source_Code_Location,
 ) {
-	spall._buffer_end(&spall_ctx, &spall_buffer)
+	spall._buffer_end(&g_spall_ctx, &spall_buffer)
 }
 
 
@@ -248,25 +252,18 @@ main :: proc() {
 		ase.genereate_png_from_ase("aseprite", "./assets/")
 	}
 	context = g_ctx
-	steam.steam_ctx = context
+	steam.g_ctx = context
 
-	spall_ctx = spall.context_create("trace.spall")
-	defer spall.context_destroy(&spall_ctx)
+	g_spall_ctx = spall.context_create("trace.spall")
+	defer spall.context_destroy(&g_spall_ctx)
 
 
 	buffer_backing := make([]u8, spall.BUFFER_DEFAULT_SIZE)
 	defer delete(buffer_backing)
 
 	spall_buffer = spall.buffer_create(buffer_backing, u32(sync.current_thread_id()))
-	defer spall.buffer_destroy(&spall_ctx, &spall_buffer)
+	defer spall.buffer_destroy(&g_spall_ctx, &spall_buffer)
 
-
-	ctx := CultCtx {
-		flags        = {},
-		scene        = .MainMenu,
-		player_count = 1,
-		player_id    = 0,
-	}
 
 	when ODIN_DEBUG {
 		rl.SetConfigFlags({.BORDERLESS_WINDOWED_MODE})
@@ -286,66 +283,69 @@ main :: proc() {
 
 	monitor_id: i32
 	monitor_count := rl.GetMonitorCount()
-	ctx.render_size.y = f32(rl.GetMonitorHeight(0))
+	g_game_ctx.render_size.y = f32(rl.GetMonitorHeight(0))
 	for i in 0 ..= monitor_count {
 		new_height := f32(rl.GetMonitorHeight(i))
-		if ctx.render_size.y < new_height {
+		if g_game_ctx.render_size.y < new_height {
 			monitor_id = i
-			ctx.render_size.y = new_height
+			g_game_ctx.render_size.y = new_height
 		}
 	}
-	ctx.render_size.x = f32(rl.GetMonitorWidth(monitor_id))
-	ctx.render_size /= f32(2)
-	rl.SetWindowSize(i32(ctx.render_size.x), i32(ctx.render_size.y))
+	g_game_ctx.render_size.x = f32(rl.GetMonitorWidth(monitor_id))
+	g_game_ctx.render_size /= f32(2)
+	rl.SetWindowSize(i32(g_game_ctx.render_size.x), i32(g_game_ctx.render_size.y))
 	rl.SetWindowMonitor(monitor_id)
 
 	// ctx.lobby = make(map[u64]Player)
-	ctx.entities.FreeEntityIdx = nil
-	ctx.entities.list = make([dynamic]Entity, 0, 128)
+	g_game_ctx.entities.FreeEntityIdx = nil
+	g_game_ctx.entities.list = make([dynamic]Entity, 0, 128)
 	{ 	// set up default keybindings
-		ctx.keymap[.DebugCross] = .F2
-		ctx.keymap[.UP] = .W
-		ctx.keymap[.DOWN] = .S
-		ctx.keymap[.RIGHT] = .D
-		ctx.keymap[.LEFT] = .A
-		ctx.keymap[.INTERACT] = .E
+		g_game_ctx.keymap[.DebugCross] = .F2
+		g_game_ctx.keymap[.UP] = .W
+		g_game_ctx.keymap[.DOWN] = .S
+		g_game_ctx.keymap[.RIGHT] = .D
+		g_game_ctx.keymap[.LEFT] = .A
+		g_game_ctx.keymap[.INTERACT] = .E
 	}
-	ctx.cameras = {{offset = ctx.render_size / 2, zoom = 1}}
+	g_game_ctx.cameras = {{offset = g_game_ctx.render_size / 2, zoom = 1}}
 	defer vmem.arena_destroy(&g_arena)
 
-	entity_add(&ctx.entities, Entity{flags = {.Controlabe, .Camera}, speed = 500, size = {32, 64}})
+	entity_add(
+		&g_game_ctx.entities,
+		Entity{flags = {.Controlabe, .Camera}, speed = 500, size = {32, 64}},
+	)
 
 	elapsed_logic_time: f32
 	elapsed_net_time: f32
 
 	when STEAM {
-		steam.init(&ctx.steam)
+		// steam_ctx: steam.SteamCtx
+		steam.g_steam.on_lobby_enter = proc(ctx: steam.SteamCtx) {
+			g_game_ctx.scene = .Game
+			entity_add(
+				&g_game_ctx.entities,
+				Entity{flags = {.Sync, .Controlabe}, size = {16, 32}, speed = 500},
+			)
+		}
+		steam.init(&steam.g_steam)
+
 	}
 	for !rl.WindowShouldClose() {
 		delta_time := rl.GetFrameTime()
 		elapsed_logic_time += delta_time
 		elapsed_net_time += delta_time
 
-		update_input(LOGIC_TICK_RATE, &ctx)
+		update_input(LOGIC_TICK_RATE, &g_game_ctx)
 
 		for elapsed_net_time >= NET_TICK_RATE {
 			elapsed_net_time -= NET_TICK_RATE
 			when STEAM {
-				events := steam.upadate_callback(&ctx.steam, &g_arena)
-				switch events {
-				case .GameEntered:
-					ctx.scene = .Game
-					entity_add(
-						&ctx.entities,
-						Entity{flags = {.Sync, .Controlabe}, size = {16, 32}, speed = 500},
-					)
-				case .GameLeft:
-				case .None:
-				}
+				steam.upadate_callback(&steam.g_steam, &g_arena)
+
 			}
 
 
-			if .Server in ctx.flags {
+			if .Server in g_game_ctx.flags {
 				// logic_update_server()
 			} else {
 				// logic_update_client()
@@ -356,7 +356,7 @@ main :: proc() {
 
 		for elapsed_logic_time >= LOGIC_TICK_RATE {
 			elapsed_logic_time -= LOGIC_TICK_RATE
-			upadate_logic(LOGIC_TICK_RATE, &ctx)
+			upadate_logic(LOGIC_TICK_RATE, &g_game_ctx)
 		}
 
 
@@ -365,16 +365,16 @@ main :: proc() {
 			rl.ClearBackground(rl.WHITE)
 			defer rl.EndDrawing()
 
-			upadate_render(delta_time, &ctx)
+			upadate_render(delta_time, &g_game_ctx)
 
 			rl.DrawFPS(0, 0)
 		}
-		spall.SCOPED_EVENT(&spall_ctx, &spall_buffer, #procedure)
+		spall.SCOPED_EVENT(&g_spall_ctx, &spall_buffer, #procedure)
 
 	}
 
 	when STEAM {
-		steam.destroy(ctx.steam)
+		steam.destroy(steam.g_steam)
 	}
 
 }
@@ -432,7 +432,7 @@ upadate_render :: proc(delta_time: f32, ctx: ^CultCtx) {
 			x := (ctx.render_size.x / 2) - 100
 			y := (0 + ctx.render_size.y / 4) + 70
 			if rl.GuiButton(rl.Rectangle{x, y, 200, 60}, "Host") {
-				steam.host(&ctx.steam)
+				steam.host(&steam.g_steam)
 
 
 				ctx.scene = .Game

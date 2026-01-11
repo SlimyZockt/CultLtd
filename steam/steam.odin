@@ -21,16 +21,20 @@ SteamCtx :: struct {
 	steam_id:        steam.CSteamID,
 	lobby_id:        steam.CSteamID,
 	socket:          steam.HSteamListenSocket,
-	identity:        steam.SteamNetworkingIdentity,
+	user_identity:   steam.SteamNetworkingIdentity,
+	host_identity:   steam.SteamNetworkingIdentity,
 	connection:      steam.HSteamNetConnection,
+	on_lobby_enter:  proc(ctx: SteamCtx),
+	on_lobby_leave:  proc(ctx: SteamCtx),
 }
 
-steam_ctx: runtime.Context
+g_steam: SteamCtx
+g_ctx: runtime.Context
 
 steam_debug_text_hook :: proc "c" (severity: c.int, debugText: cstring) {
 	// if you're running in the debugger, only warnings (nSeverity >= 1) will be sent
 	// if you add -debug_steamworksapi to the command-line, a lot of extra informational messages will also be sent
-	context = steam_ctx
+	context = g_ctx
 	log.info(string(debugText))
 
 	if severity >= 1 {
@@ -44,7 +48,7 @@ steam_networtk_debug_to_log :: proc "c" (
 	net_level: steam.ESteamNetworkingSocketsDebugOutputType,
 	msg: cstring,
 ) {
-	context = steam_ctx
+	context = g_ctx
 
 	level: log.Level
 	switch net_level {
@@ -94,7 +98,7 @@ init :: proc(ctx: ^SteamCtx) {
 	ctx.socket = steam.HSteamListenSocket_Invalid
 	ctx.connection = steam.HSteamNetConnection_Invalid
 
-	steam.NetworkingIdentity_SetSteamID(&ctx.identity, ctx.steam_id)
+	steam.NetworkingIdentity_SetSteamID(&ctx.user_identity, ctx.steam_id)
 
 	steam.Client_SetWarningMessageHook(ctx.client, steam_debug_text_hook)
 
@@ -109,7 +113,7 @@ init :: proc(ctx: ^SteamCtx) {
 
 }
 
-upadate_callback :: proc(ctx: ^SteamCtx, arena: ^vmem.Arena) -> Events {
+upadate_callback :: proc(ctx: ^SteamCtx, arena: ^vmem.Arena) {
 	temp := vmem.arena_temp_begin(arena)
 	context.allocator = vmem.arena_allocator(arena)
 	defer vmem.arena_temp_end(temp)
@@ -138,11 +142,9 @@ upadate_callback :: proc(ctx: ^SteamCtx, arena: ^vmem.Arena) -> Events {
 			continue
 		}
 
-		return callback_handler(ctx, &callback)
+		callback_handler(ctx, &callback)
 
 	}
-
-	return nil
 }
 
 destroy :: proc(ctx: SteamCtx) {
@@ -153,13 +155,6 @@ destroy :: proc(ctx: SteamCtx) {
 	// steam.SteamGameServer_Shutdown()
 }
 
-Events :: enum {
-	None,
-	GameEntered,
-	GameLeft,
-	// Conneced,
-}
-
 callback_complete_handle :: proc(
 	ctx: ^SteamCtx,
 	callback: ^steam.SteamAPICallCompleted,
@@ -168,8 +163,14 @@ callback_complete_handle :: proc(
 	#partial switch callback.iCallback {
 	case .LobbyEnter:
 		data := (^steam.LobbyEnter)(param)
+		log.debug(steam.EChatRoomEnterResponse(data.EChatRoomEnterResponse))
+		assert(data.EChatRoomEnterResponse == u32(steam.EChatRoomEnterResponse.Success))
 		id: steam.SteamNetworkingIdentity
-		steam.NetworkingIdentity_SetSteamID(&id, data.ulSteamIDLobby)
+		steam.NetworkingIdentity_SetSteamID(
+			&id,
+			steam.Matchmaking_GetLobbyOwner(ctx.matchmaking, ctx.lobby_id),
+		)
+
 		steam.NetworkingSockets_ConnectP2P(ctx.network_sockets, &id, 0, 0, nil)
 	case .LobbyDataUpdate:
 	case .LobbyCreated:
@@ -184,23 +185,28 @@ callback_complete_handle :: proc(
 }
 
 
-callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) -> Events {
+callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 	#partial switch callback.iCallback {
 	case .GameRichPresenceJoinRequested:
 	case .SteamNetConnectionStatusChangedCallback:
 		data := (^steam.SteamNetConnectionStatusChangedCallback)(callback.pubParam)
+		// data := (^steam.SteamNetConnectionStatusChangedCallback)(param)
 
 		is_connecting :=
 			data.info.hListenSocket != 0 &&
-			data.eOldState == .None &&
-			data.info.eState == .Connecting
+			data.info.eState == .Connecting &&
+			data.eOldState == .None
+
+		log.infof("%v", data)
+		log.infof("%b", data.info.eState)
+		log.infof("%v", is_connecting)
 
 		if is_connecting {
 			res := steam.NetworkingSockets_AcceptConnection(ctx.network_sockets, data.hConn)
 			assert(res == .OK)
 			ctx.connection = data.hConn
 
-			return .GameEntered
+			ctx.on_lobby_enter(ctx^)
 		}
 
 
@@ -215,6 +221,7 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) -> Events
 				ctx.connection = steam.HSteamNetConnection_Invalid
 			}
 			// ctx.socket = steam.HSteamListenSocket_Invalid
+			ctx.on_lobby_leave(ctx^)
 		}
 
 
@@ -232,20 +239,26 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) -> Events
 			log.infof("%v left", data.ulSteamIDUserChanged)
 		// ctx.lobby_id = 0
 		}
-	case .GameLobbyJoinRequested:
+	case .GameLobbyJoinRequested: // connect to peer
 		data := (^steam.GameLobbyJoinRequested)(callback.pubParam)
 		_ = steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
+		steam.NetworkingIdentity_SetSteamID(&ctx.host_identity, data.steamIDFriend)
+		ctx.connection = steam.NetworkingSockets_ConnectP2P(
+			ctx.network_sockets,
+			&ctx.host_identity,
+			0,
+			0,
+			nil,
+		)
+
 	}
 	log.info("Callback:", callback.iCallback)
-
-	return nil
 }
 
 
 host :: proc(ctx: ^SteamCtx) {
 	ctx.socket = steam.NetworkingSockets_CreateListenSocketP2P(ctx.network_sockets, 0, 0, nil)
 	_ = steam.Matchmaking_CreateLobby(ctx.matchmaking, .FriendsOnly, 4)
-
 }
 
 
