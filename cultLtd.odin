@@ -334,11 +334,13 @@ main :: proc() {
 				events := steam.upadate_callback(&ctx.steam, &g_arena)
 				switch events {
 				case .GameEntered:
+					ctx.scene = .Game
 					entity_add(
 						&ctx.entities,
 						Entity{flags = {.Sync, .Controlabe}, size = {16, 32}, speed = 500},
 					)
 				case .GameLeft:
+				case .None:
 				}
 			}
 

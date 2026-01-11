@@ -154,6 +154,7 @@ destroy :: proc(ctx: SteamCtx) {
 }
 
 Events :: enum {
+	None,
 	GameEntered,
 	GameLeft,
 	// Conneced,
