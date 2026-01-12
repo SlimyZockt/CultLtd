@@ -340,7 +340,7 @@ main :: proc() {
 		for elapsed_net_time >= NET_TICK_RATE {
 			elapsed_net_time -= NET_TICK_RATE
 			when STEAM {
-				steam.upadate_callback(&steam.g_steam, &g_arena)
+				steam.update_callback(&steam.g_steam, &g_arena)
 
 			}
 
