@@ -105,7 +105,9 @@ CultCtx :: struct {
 	using render_ctx: RenderCtx,
 	entities:         EntityList,
 	keymap:           [Actions]rl.KeyboardKey,
-	lobby:            [MaxPlayerCount]Player,
+	lobby:            []Player,
+	net:              NetCtx,
+	steam:            steam.SteamCtx,
 }
 
 rl_trace_to_log :: proc "c" (rl_level: rl.TraceLogLevel, message: cstring, args: ^c.va_list) {
@@ -317,19 +319,16 @@ main :: proc() {
 
 	elapsed_logic_time: f32
 	elapsed_net_time: f32
+	net_ctx: NetCtx
 
 	when STEAM {
-		// steam_ctx: steam.SteamCtx
-		steam.g_steam.on_lobby_enter = proc(ctx: steam.SteamCtx) {
-			g_game_ctx.scene = .Game
-			entity_add(
-				&g_game_ctx.entities,
-				Entity{flags = {.Sync, .Controlabe}, size = {16, 32}, speed = 500},
-			)
-		}
-		steam.init(&steam.g_steam)
-
+		steam.init(&g_game_ctx.steam)
 	}
+
+	net_init(&net_ctx)
+	defer net_deinit()
+
+
 	for !rl.WindowShouldClose() {
 		delta_time := rl.GetFrameTime()
 		elapsed_logic_time += delta_time
@@ -340,7 +339,7 @@ main :: proc() {
 		for elapsed_net_time >= NET_TICK_RATE {
 			elapsed_net_time -= NET_TICK_RATE
 			when STEAM {
-				steam.update_callback(&steam.g_steam, &g_arena)
+				steam.update_callback(&g_game_ctx.steam, &g_arena)
 
 			}
 
@@ -374,12 +373,13 @@ main :: proc() {
 	}
 
 	when STEAM {
-		steam.destroy(steam.g_steam)
+		steam.destroy(g_game_ctx.steam)
 	}
 
 }
 
 update_input :: proc(delta_time: f32, ctx: ^CultCtx) {
+	if ctx.scene != .Game do return
 	input := &ctx.lobby[ctx.player_id].input_down
 
 	input^ = rl.IsKeyDown(ctx.keymap[.UP]) ? input^ + {.UP} : input^ - {.UP}
@@ -398,6 +398,7 @@ update_input :: proc(delta_time: f32, ctx: ^CultCtx) {
 }
 
 upadate_logic :: proc(delta_time: f32, ctx: ^CultCtx) {
+	if ctx.scene != .Game do return
 	for &entity in ctx.entities.list {
 		if (EntityFlags{.Controlabe} <= entity.flags) { 	// movement ctl
 			input: [2]f32
@@ -426,14 +427,18 @@ upadate_render :: proc(delta_time: f32, ctx: ^CultCtx) {
 			rl.Rectangle{(ctx.render_size.x / 2) - 100, (0 + ctx.render_size.y / 4), 200, 60},
 			"Play",
 		) {
+
+			ctx.lobby = make([]Player, 1)
 			ctx.scene = .Game
 		}
 		when STEAM {
 			x := (ctx.render_size.x / 2) - 100
 			y := (0 + ctx.render_size.y / 4) + 70
 			if rl.GuiButton(rl.Rectangle{x, y, 200, 60}, "Host") {
-				steam.host(&steam.g_steam)
+				steam.create_lobby(&ctx.steam)
+				net_create_server(&ctx.net)
 
+				ctx.lobby = make([]Player, MaxPlayerCount)
 
 				ctx.scene = .Game
 				assert(.Client not_in ctx.flags)
@@ -470,7 +475,6 @@ update_game_scene :: proc(delta_time: f32, ctx: ^CultCtx) {
 			defer rl.EndMode2D()
 
 			rl.DrawRectangle(0, 0, 64, 64, rl.GRAY)
-
 
 			rl.DrawRectanglePro(
 				rl.Rectangle{entity.pos.x, entity.pos.y, entity.size.x, entity.size.y},
