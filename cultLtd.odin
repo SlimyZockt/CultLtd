@@ -1,7 +1,6 @@
 // Sacrifice other world beings to grow your factory
 package main
 
-import "base:intrinsics"
 import "base:runtime"
 import "core:c"
 import "core:flags"
@@ -17,8 +16,6 @@ import stbsp "vendor:stb/sprintf"
 
 import ase "./aseprite"
 import steam "./steam/"
-
-import "vendor:ggpo"
 
 LOGIC_FPS :: 60
 LOGIC_TICK_RATE :: 1.0 / LOGIC_FPS
@@ -82,8 +79,6 @@ Scenes :: enum u32 {
 	MainMenu,
 }
 
-MaxPlayerCount :: 4
-MaxInputQueue :: 8
 ActionToggles :: bit_set[Actions;u32]
 Player :: struct {
 	input_down:    ActionToggles,
@@ -105,10 +100,9 @@ CultCtx :: struct {
 	using render_ctx: RenderCtx,
 	entities:         EntityList,
 	keymap:           [Actions]rl.KeyboardKey,
-	lobby:            []Player,
+	players:          []Player,
 	net:              NetCtx,
 	steam:            steam.SteamCtx,
-	player:           EntityHandle,
 }
 
 rl_trace_to_log :: proc "c" (rl_level: rl.TraceLogLevel, message: cstring, args: ^c.va_list) {
@@ -157,8 +151,6 @@ entity_add :: proc(
 	entity: Entity,
 	allocator := context.allocator,
 ) -> EntityHandle {
-
-
 	if idx, ok := entities.FreeEntityIdx.?; ok {
 		generation := entities.list[idx].generation + 1
 		entities.FreeEntityIdx = entities.list[idx].NextFreeEntityIdx
@@ -315,10 +307,7 @@ main :: proc() {
 	ctx.cameras = {{offset = ctx.render_size / 2, zoom = 1}}
 	defer vmem.arena_destroy(&g_arena)
 
-	ctx.player = entity_add(
-		&ctx.entities,
-		Entity{flags = {.Controlabe, .Camera}, speed = 500, size = {32, 64}},
-	)
+	entity_add(&ctx.entities, Entity{flags = {.Controlabe, .Camera}, speed = 500, size = {32, 64}})
 
 	elapsed_logic_time: f32
 	elapsed_net_time: f32
@@ -329,6 +318,8 @@ main :: proc() {
 			net_create_client(&ctx.net)
 			net_connect(&ctx.net)
 			// net_write(&ctx.net, NetData{})
+			ctx.players = make([]Player, MAX_PLAYER_COUNT)
+			ctx.player_id = steam_ctx.lobby_size
 			entity_add(&ctx.entities, Entity{flags = {.Controlabe}, speed = 500, size = {32, 64}})
 			ctx.scene = .Game
 		}
@@ -399,7 +390,7 @@ main :: proc() {
 
 update_input :: proc(delta_time: f32, ctx: ^CultCtx) {
 	if ctx.scene != .Game do return
-	input := &ctx.lobby[ctx.player_id].input_down
+	input := &ctx.players[ctx.player_id].input_down
 
 	input^ = rl.IsKeyDown(ctx.keymap[.UP]) ? input^ + {.UP} : input^ - {.UP}
 	input^ = rl.IsKeyDown(ctx.keymap[.DOWN]) ? input^ + {.DOWN} : input^ - {.DOWN}
@@ -422,7 +413,7 @@ upadate_logic :: proc(delta_time: f32, ctx: ^CultCtx) {
 		if (EntityFlags{.Controlabe} <= entity.flags) { 	// movement ctl
 			input: [2]f32
 
-			input_down := ctx.lobby[ctx.player_id].input_down
+			input_down := ctx.players[ctx.player_id].input_down
 			if .UP in input_down do input.y -= 1
 			if .DOWN in input_down do input.y += 1
 			if .RIGHT in input_down do input.x += 1
@@ -446,7 +437,7 @@ upadate_render :: proc(delta_time: f32, ctx: ^CultCtx) {
 			rl.Rectangle{(ctx.render_size.x / 2) - 100, (0 + ctx.render_size.y / 4), 200, 60},
 			"Play",
 		) {
-			ctx.lobby = make([]Player, 1)
+			ctx.players = make([]Player, 1)
 			ctx.scene = .Game
 		}
 		when STEAM {
@@ -456,7 +447,7 @@ upadate_render :: proc(delta_time: f32, ctx: ^CultCtx) {
 				steam.create_lobby(&ctx.steam)
 				net_create_server(&ctx.net)
 
-				ctx.lobby = make([]Player, MaxPlayerCount)
+				ctx.players = make([]Player, MAX_PLAYER_COUNT)
 
 				ctx.scene = .Game
 				assert(.Client not_in ctx.flags)

@@ -9,9 +9,10 @@ import vmem "core:mem/virtual"
 import "core:strings"
 
 
-MAX_LOBBY_SIZE :: 8
 LOBBY_DATA_KEY :: "key"
 SteamCtx :: struct {
+	lobby_size:          u8,
+	// lobby_max_size:      u8,
 	user:                ^steam.IUser,
 	network_util:        ^steam.INetworkingUtils,
 	network:             ^steam.INetworking,
@@ -158,6 +159,9 @@ callback_complete_handle :: proc(
 		data := (^steam.LobbyEnter)(param)
 		assert(data.EChatRoomEnterResponse == u32(steam.EChatRoomEnterResponse.Success))
 		log.infof("%v entered lobby", data.ulSteamIDLobby)
+		ctx.lobby_size = u8(
+			steam.Matchmaking_GetNumLobbyMembers(ctx.matchmaking, data.ulSteamIDLobby),
+		)
 		ctx.on_lobby_connect(ctx)
 
 	case .LobbyCreated:
