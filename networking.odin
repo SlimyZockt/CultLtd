@@ -25,7 +25,6 @@ NetData :: struct {
 	stuff: string,
 }
 
-
 net_init :: proc(ctx: ^NetCtx, port: u16 = 7777) {
 	ok := ENet.initialize()
 	assert(ok == 0) //FIXME(abdul): proper err handling
@@ -98,15 +97,11 @@ net_write :: proc(ctx: ^NetCtx, data: NetData) {
 	ENet.peer_send(ctx.peer_server, 0, packet)
 }
 
-net_get_peer :: proc() {
-
-}
 
 net_disconnect :: proc(ctx: NetCtx, id: u64) {
 	ENet.host_destroy(ctx.host)
-
-	_ = id
-	ENet.peer_disconnect(nil, 0)
+	// _ = id
+	// ENet.peer_disconnect(nil, 0)
 }
 
 net_disconnect_all :: proc() {}

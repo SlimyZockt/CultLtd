@@ -330,12 +330,14 @@ main :: proc() {
 			net_connect(&ctx.net)
 			net_write(&ctx.net, NetData{})
 			// entity_add(&ctx.entities, Entity{flags = {.Controlabe}, speed = 500, size = {32, 64}})
+			ctx.scene = .Game
 		}
 
 
 		ctx.steam.on_lobby_disconnect = proc(steam_ctx: ^steam.SteamCtx) {
 			net_disconnect(ctx.net, 0)
 			net_deinit()
+			ctx.scene = .MainMenu
 		}
 
 		steam.init(&ctx.steam)

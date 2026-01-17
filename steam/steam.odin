@@ -158,6 +158,7 @@ callback_complete_handle :: proc(
 		data := (^steam.LobbyEnter)(param)
 		assert(data.EChatRoomEnterResponse == u32(steam.EChatRoomEnterResponse.Success))
 		log.infof("%v entered lobby", data.ulSteamIDLobby)
+		ctx.on_lobby_connect(ctx)
 
 	case .LobbyCreated:
 		data := (^steam.LobbyCreated)(param)
@@ -172,9 +173,8 @@ callback_complete_handle :: proc(
 
 callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 	#partial switch callback.iCallback {
-	//   case .LobbyEnter:
-	// data := (^steam.LobbyEnter)(callback.pubParam)
 	case .LobbyChatUpdate:
+		// Server
 		data := (^steam.LobbyChatUpdate)(callback.pubParam)
 		log.info(data.rgfChatMemberStateChange)
 		state := cast(steam.EChatMemberStateChange)(data.rgfChatMemberStateChange)
@@ -183,17 +183,16 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 			log.infof("%v has entered the lobby", data.ulSteamIDUserChanged)
 			assert(ctx.on_lobby_connect != nil)
 			ctx.lobby_id = data.ulSteamIDLobby
-			ctx.on_lobby_connect(ctx)
+		// ctx.on_lobby_connect(ctx)
 		case .Disconnected, .Left, .Kicked, .Banned:
 			log.infof("%v has left the lobby", data.ulSteamIDUserChanged)
 			assert(ctx.on_lobby_disconnect != nil)
-			ctx.on_lobby_disconnect(ctx)
 			ctx.lobby_id = 0
+			ctx.on_lobby_disconnect(ctx)
 		}
 	case .LobbyDataUpdate:
-	case .FriendRichPresenceUpdate:
-		data := (^steam.FriendRichPresenceUpdate)(callback.pubParam)
-		log.infof("FriendRichPresenceUpdate %v.", data.steamIDFriend)
+		// Server & Peer
+		data := (^steam.LobbyDataUpdate)(callback.pubParam)
 	case .GameLobbyJoinRequested:
 		// connect to peer
 		data := (^steam.GameLobbyJoinRequested)(callback.pubParam)
