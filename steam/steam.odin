@@ -151,8 +151,9 @@ callback_complete_handle :: proc(
 	#partial switch callback.iCallback {
 	case .LobbyEnter:
 		data := (^steam.LobbyEnter)(param)
-		log.debug(steam.EChatRoomEnterResponse(data.EChatRoomEnterResponse))
 		assert(data.EChatRoomEnterResponse == u32(steam.EChatRoomEnterResponse.Success))
+		log.infof("%v entered lobby", data.ulSteamIDLobby)
+
 	case .LobbyCreated:
 		data := (^steam.LobbyCreated)(param)
 		assert(data.eResult == .OK)
@@ -166,6 +167,8 @@ callback_complete_handle :: proc(
 
 callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 	#partial switch callback.iCallback {
+	//   case .LobbyEnter:
+	// data := (^steam.LobbyEnter)(callback.pubParam)
 	case .LobbyChatUpdate:
 		data := (^steam.LobbyChatUpdate)(callback.pubParam)
 		log.info(data.rgfChatMemberStateChange)
@@ -181,6 +184,10 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 			ctx.on_lobby_disconnect(ctx)
 		// ctx.lobby_id = 0
 		}
+	case .LobbyDataUpdate:
+	case .FriendRichPresenceUpdate:
+		data := (^steam.FriendRichPresenceUpdate)(callback.pubParam)
+		log.infof("FriendRichPresenceUpdate %v.", data.steamIDFriend)
 	case .GameLobbyJoinRequested:
 		// connect to peer
 		data := (^steam.GameLobbyJoinRequested)(callback.pubParam)
@@ -188,6 +195,8 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 
 
 		log.infof("trying to connect to user %v (%v).", name, data.steamIDFriend)
+		// ctx.lobby_id = data.steamIDLobby
+		steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
 	}
 
 	log.info("Callback:", callback.iCallback)
