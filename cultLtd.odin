@@ -427,7 +427,6 @@ upadate_render :: proc(delta_time: f32, ctx: ^CultCtx) {
 			rl.Rectangle{(ctx.render_size.x / 2) - 100, (0 + ctx.render_size.y / 4), 200, 60},
 			"Play",
 		) {
-
 			ctx.lobby = make([]Player, 1)
 			ctx.scene = .Game
 		}
