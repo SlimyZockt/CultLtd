@@ -320,7 +320,7 @@ main :: proc() {
 			// net_write(&ctx.net, NetData{})
 			ctx.players = make([]Player, MAX_PLAYER_COUNT)
 			ctx.player_id = steam_ctx.lobby_size
-			entity_add(&ctx.entities, Entity{flags = {.Controlabe}, speed = 500, size = {32, 64}})
+			entity_add(&ctx.entities, Entity{flags = {.Controlabe}, speed = 500, size = {32, 64}, pos = {100, 100}})
 			ctx.scene = .Game
 		}
 
