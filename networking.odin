@@ -113,5 +113,5 @@ net_connect :: proc(ctx: ^NetCtx, address: cstring = "") {
 
 	ctx.peer_count += 1
 	ctx.peers[ctx.peer_count] = ENet.host_connect(ctx.host, &ctx.address, NET_CHANNEL_COUNT, 0)
-	assert(ctx.peers == nil)
+	assert(ctx.peers != nil)
 }
