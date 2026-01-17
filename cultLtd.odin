@@ -328,13 +328,14 @@ main :: proc() {
 			if .Server in ctx.flags do return
 			net_create_client(&ctx.net)
 			net_connect(&ctx.net)
-			net_write(&ctx.net, NetData{})
-			// entity_add(&ctx.entities, Entity{flags = {.Controlabe}, speed = 500, size = {32, 64}})
+			// net_write(&ctx.net, NetData{})
+			entity_add(&ctx.entities, Entity{flags = {.Controlabe}, speed = 500, size = {32, 64}})
 			ctx.scene = .Game
 		}
 
 
 		ctx.steam.on_lobby_disconnect = proc(steam_ctx: ^steam.SteamCtx) {
+			if .Server in ctx.flags do return
 			net_disconnect(ctx.net, 0)
 			net_deinit()
 			ctx.scene = .MainMenu
