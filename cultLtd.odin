@@ -108,6 +108,7 @@ CultCtx :: struct {
 	lobby:            []Player,
 	net:              NetCtx,
 	steam:            steam.SteamCtx,
+	player:           EntityHandle,
 }
 
 rl_trace_to_log :: proc "c" (rl_level: rl.TraceLogLevel, message: cstring, args: ^c.va_list) {
@@ -192,7 +193,7 @@ entity_delete :: proc(entities: ^EntityList, entity_handle: EntityHandle) {
 	entities.FreeEntityIdx = entity_handle.id
 }
 
-entity_get :: proc(entities: ^EntityList, entity_handle: EntityHandle) -> ^Entity {
+entity_get :: proc(entities: EntityList, entity_handle: EntityHandle) -> ^Entity {
 	if entities.list[entity_handle.id].generation != entity_handle.generation {
 		log.error("Wrong generation entity")
 		return nil
@@ -208,12 +209,6 @@ g_cult_debug := #config(CULT_DEBUG, ODIN_DEBUG)
 g_ctx: runtime.Context
 g_arena: vmem.Arena
 g_spall_ctx: spall.Context
-g_game_ctx := CultCtx {
-	flags        = {},
-	scene        = .MainMenu,
-	player_count = 1,
-	player_id    = 0,
-}
 
 @(thread_local)
 spall_buffer: spall.Buffer
@@ -254,7 +249,6 @@ main :: proc() {
 		ase.genereate_png_from_ase("aseprite", "./assets/")
 	}
 	context = g_ctx
-	steam.g_ctx = context
 
 	g_spall_ctx = spall.context_create("trace.spall")
 	defer spall.context_destroy(&g_spall_ctx)
@@ -283,49 +277,71 @@ main :: proc() {
 	ensure(arena_err == nil)
 	context.allocator = vmem.arena_allocator(&g_arena)
 
+	@(static) ctx := CultCtx {
+		flags = {},
+		scene = .MainMenu,
+		player_count = 1,
+		player_id = 0,
+		keymap = {
+			.DebugCross = .F2,
+			.UP = .W,
+			.DOWN = .S,
+			.RIGHT = .D,
+			.LEFT = .A,
+			.INTERACT = .E,
+		},
+	}
+
 	monitor_id: i32
 	monitor_count := rl.GetMonitorCount()
-	g_game_ctx.render_size.y = f32(rl.GetMonitorHeight(0))
+	ctx.render_size.y = f32(rl.GetMonitorHeight(0))
 	for i in 0 ..= monitor_count {
 		new_height := f32(rl.GetMonitorHeight(i))
-		if g_game_ctx.render_size.y < new_height {
+		if ctx.render_size.y < new_height {
 			monitor_id = i
-			g_game_ctx.render_size.y = new_height
+			ctx.render_size.y = new_height
 		}
 	}
-	g_game_ctx.render_size.x = f32(rl.GetMonitorWidth(monitor_id))
-	g_game_ctx.render_size /= f32(2)
-	rl.SetWindowSize(i32(g_game_ctx.render_size.x), i32(g_game_ctx.render_size.y))
+	ctx.render_size.x = f32(rl.GetMonitorWidth(monitor_id))
+	ctx.render_size /= f32(2)
+	rl.SetWindowSize(i32(ctx.render_size.x), i32(ctx.render_size.y))
 	rl.SetWindowMonitor(monitor_id)
 
-	// ctx.lobby = make(map[u64]Player)
-	g_game_ctx.entities.FreeEntityIdx = nil
-	g_game_ctx.entities.list = make([dynamic]Entity, 0, 128)
-	{ 	// set up default keybindings
-		g_game_ctx.keymap[.DebugCross] = .F2
-		g_game_ctx.keymap[.UP] = .W
-		g_game_ctx.keymap[.DOWN] = .S
-		g_game_ctx.keymap[.RIGHT] = .D
-		g_game_ctx.keymap[.LEFT] = .A
-		g_game_ctx.keymap[.INTERACT] = .E
+
+	ctx.entities = {
+		FreeEntityIdx = nil,
+		list          = make([dynamic]Entity, 0, 128),
 	}
-	g_game_ctx.cameras = {{offset = g_game_ctx.render_size / 2, zoom = 1}}
+	ctx.cameras = {{offset = ctx.render_size / 2, zoom = 1}}
 	defer vmem.arena_destroy(&g_arena)
 
-	entity_add(
-		&g_game_ctx.entities,
+	ctx.player = entity_add(
+		&ctx.entities,
 		Entity{flags = {.Controlabe, .Camera}, speed = 500, size = {32, 64}},
 	)
 
 	elapsed_logic_time: f32
 	elapsed_net_time: f32
-	net_ctx: NetCtx
 
 	when STEAM {
-		steam.init(&g_game_ctx.steam)
+		ctx.steam.on_lobby_connect = proc(steam_ctx: ^steam.SteamCtx) {
+			if .Server in ctx.flags do return
+			net_create_client(&ctx.net)
+			net_connect(&ctx.net)
+			net_write(&ctx.net, NetData{})
+			// entity_add(&ctx.entities, Entity{flags = {.Controlabe}, speed = 500, size = {32, 64}})
+		}
+
+
+		ctx.steam.on_lobby_disconnect = proc(steam_ctx: ^steam.SteamCtx) {
+			net_disconnect(ctx.net, 0)
+			net_deinit()
+		}
+
+		steam.init(&ctx.steam)
 	}
 
-	net_init(&net_ctx)
+	net_init(&ctx.net)
 	defer net_deinit()
 
 
@@ -334,17 +350,17 @@ main :: proc() {
 		elapsed_logic_time += delta_time
 		elapsed_net_time += delta_time
 
-		update_input(LOGIC_TICK_RATE, &g_game_ctx)
+		update_input(LOGIC_TICK_RATE, &ctx)
 
 		for elapsed_net_time >= NET_TICK_RATE {
 			elapsed_net_time -= NET_TICK_RATE
 			when STEAM {
-				steam.update_callback(&g_game_ctx.steam, &g_arena)
+				steam.update_callback(&ctx.steam, &g_arena)
 
 			}
 
 
-			if .Server in g_game_ctx.flags {
+			if .Server in ctx.flags {
 				// logic_update_server()
 			} else {
 				// logic_update_client()
@@ -355,7 +371,7 @@ main :: proc() {
 
 		for elapsed_logic_time >= LOGIC_TICK_RATE {
 			elapsed_logic_time -= LOGIC_TICK_RATE
-			upadate_logic(LOGIC_TICK_RATE, &g_game_ctx)
+			upadate_logic(LOGIC_TICK_RATE, &ctx)
 		}
 
 
@@ -364,7 +380,7 @@ main :: proc() {
 			rl.ClearBackground(rl.WHITE)
 			defer rl.EndDrawing()
 
-			upadate_render(delta_time, &g_game_ctx)
+			upadate_render(delta_time, &ctx)
 
 			rl.DrawFPS(0, 0)
 		}
@@ -373,7 +389,7 @@ main :: proc() {
 	}
 
 	when STEAM {
-		steam.destroy(g_game_ctx.steam)
+		steam.destroy(ctx.steam)
 	}
 
 }
@@ -411,7 +427,7 @@ upadate_logic :: proc(delta_time: f32, ctx: ^CultCtx) {
 
 			if input.x != 0 || input.y != 0 {
 				dir := linalg.normalize(input)
-				entity.pos += dir * entity.speed * LOGIC_TICK_RATE
+				entity.pos += dir * entity.speed * delta_time
 			}
 		}
 	}
@@ -467,21 +483,25 @@ upadate_render :: proc(delta_time: f32, ctx: ^CultCtx) {
 }
 
 update_game_scene :: proc(delta_time: f32, ctx: ^CultCtx) {
+	// player := entity_get(ctx.entities, ctx.player)
+	// ctx.cameras[0].target = player.pos + (player.size / 2)
 	for &entity in ctx.entities.list {
 		if .Camera in entity.flags {
 			ctx.cameras[0].target = entity.pos + (entity.size / 2)
-			rl.BeginMode2D(ctx.cameras[0])
-			defer rl.EndMode2D()
-
-			rl.DrawRectangle(0, 0, 64, 64, rl.GRAY)
-
-			rl.DrawRectanglePro(
-				rl.Rectangle{entity.pos.x, entity.pos.y, entity.size.x, entity.size.y},
-				[2]f32{},
-				0,
-				rl.RED,
-			)
 		}
+	}
+
+	rl.BeginMode2D(ctx.cameras[0])
+	defer rl.EndMode2D()
+	rl.DrawRectangle(0, 0, 64, 64, rl.GRAY)
+
+	for &entity in ctx.entities.list {
+		rl.DrawRectanglePro(
+			rl.Rectangle{entity.pos.x, entity.pos.y, entity.size.x, entity.size.y},
+			[2]f32{},
+			0,
+			rl.RED,
+		)
 	}
 
 

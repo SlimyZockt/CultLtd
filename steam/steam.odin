@@ -25,6 +25,7 @@ SteamCtx :: struct {
 	on_lobby_disconnect: proc(ctx: ^SteamCtx),
 }
 
+@(private)
 g_ctx: runtime.Context
 
 steam_debug_text_hook :: proc "c" (severity: c.int, debugText: cstring) {
@@ -69,6 +70,7 @@ steam_networtk_debug_to_log :: proc "c" (
 }
 
 init :: proc(ctx: ^SteamCtx) {
+	g_ctx = context
 	if steam.RestartAppIfNecessary(steam.uAppIdInvalid) {
 		log.info("start through steam")
 		return
@@ -92,6 +94,9 @@ init :: proc(ctx: ^SteamCtx) {
 	ctx.user = steam.User()
 	ctx.friends = steam.Friends()
 	ctx.steam_id = steam.User_GetSteamID(ctx.user)
+
+	assert(ctx.on_lobby_connect != nil)
+	assert(ctx.on_lobby_disconnect != nil)
 
 	steam.Client_SetWarningMessageHook(ctx.client, steam_debug_text_hook)
 	steam.NetworkingUtils_SetDebugOutputFunction(
@@ -175,14 +180,15 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 		state := cast(steam.EChatMemberStateChange)(data.rgfChatMemberStateChange)
 		switch state {
 		case .Entered:
-			// ctx.lobby
-			log.infof("%v entered", data.ulSteamIDUserChanged)
+			log.infof("%v has entered the lobby", data.ulSteamIDUserChanged)
+			assert(ctx.on_lobby_connect != nil)
+			ctx.lobby_id = data.ulSteamIDLobby
 			ctx.on_lobby_connect(ctx)
-		// ctx.lobby_id = data.ulSteamIDLobby
 		case .Disconnected, .Left, .Kicked, .Banned:
-			log.infof("%v left", data.ulSteamIDUserChanged)
+			log.infof("%v has left the lobby", data.ulSteamIDUserChanged)
+			assert(ctx.on_lobby_disconnect != nil)
 			ctx.on_lobby_disconnect(ctx)
-		// ctx.lobby_id = 0
+			ctx.lobby_id = 0
 		}
 	case .LobbyDataUpdate:
 	case .FriendRichPresenceUpdate:
@@ -192,10 +198,7 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 		// connect to peer
 		data := (^steam.GameLobbyJoinRequested)(callback.pubParam)
 		name := steam.Friends_GetFriendPersonaName(ctx.friends, data.steamIDFriend)
-
-
 		log.infof("trying to connect to user %v (%v).", name, data.steamIDFriend)
-		// ctx.lobby_id = data.steamIDLobby
 		steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
 	}
 

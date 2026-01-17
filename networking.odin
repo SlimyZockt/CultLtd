@@ -91,8 +91,10 @@ net_update :: proc(ctx: ^NetCtx) {
 	}
 }
 
-net_write :: proc(ctx: ^NetCtx, data: ^NetData) {
-	packet := ENet.packet_create(data, size_of(NetData), {.RELIABLE})
+net_write :: proc(ctx: ^NetCtx, data: NetData) {
+	// packet := ENet.packet_create(data, size_of(NetData), {.RELIABLE})
+	msg := "hello form someone"
+	packet := ENet.packet_create(&msg, len(msg), {.RELIABLE})
 	ENet.peer_send(ctx.peer_server, 0, packet)
 }
 
@@ -110,9 +112,12 @@ net_disconnect :: proc(ctx: NetCtx, id: u64) {
 net_disconnect_all :: proc() {}
 
 
-net_connect :: proc(ctx: ^NetCtx, address: ^ENet.Address) {
-	_ = address
+net_connect :: proc(ctx: ^NetCtx, address: cstring = "") {
+	if address != "" {
+		ENet.address_set_host(&ctx.address, address)
+	}
+
 	ctx.peer_count += 1
-	ctx.peers[ctx.peer_count] = ENet.host_connect(ctx.host, address, NET_CHANNEL_COUNT, 0)
+	ctx.peers[ctx.peer_count] = ENet.host_connect(ctx.host, &ctx.address, NET_CHANNEL_COUNT, 0)
 	assert(ctx.peers == nil)
 }
