@@ -497,11 +497,9 @@ update_game_scene :: proc(ctx: ^CultCtx, delta_time: f32) {
 	}
 }
 
-game_init :: proc(
-	ctx: ^CultCtx,
-	max_player_count := 1,
-) where max_player_count > 0 &&
-	max_player_count <= MAX_PLAYER_COUNT {
+game_init :: proc(ctx: ^CultCtx, max_player_count := 1) {
+	assert(max_player_count > 0)
+	assert(max_player_count <= MAX_PLAYER_COUNT)
 	ctx.scene = .Game
 	if ctx.player_count == 1 {
 		ctx.flags += {.Server}
