@@ -6,6 +6,7 @@ import "core:c"
 import "core:fmt"
 import "core:log"
 import vmem "core:mem/virtual"
+import "core:net"
 import "core:strings"
 
 
@@ -13,6 +14,7 @@ LOBBY_DATA_KEY :: "key"
 SteamCtx :: struct {
 	lobby_size:          u8,
 	// lobby_max_size:      u8,
+	address:             u32,
 	user:                ^steam.IUser,
 	network_util:        ^steam.INetworkingUtils,
 	network:             ^steam.INetworking,
@@ -158,10 +160,20 @@ callback_complete_handle :: proc(
 	case .LobbyEnter:
 		data := (^steam.LobbyEnter)(param)
 		assert(data.EChatRoomEnterResponse == u32(steam.EChatRoomEnterResponse.Success))
-		log.infof("%v entered lobby", data.ulSteamIDLobby)
+		log.infof("I entered lobby %v", data.ulSteamIDLobby)
 		ctx.lobby_size = u8(
 			steam.Matchmaking_GetNumLobbyMembers(ctx.matchmaking, data.ulSteamIDLobby),
 		)
+
+		ip: ^u32
+		ok := steam.Matchmaking_GetLobbyGameServer(
+			ctx.matchmaking,
+			data.ulSteamIDLobby,
+			ip,
+			nil,
+			nil,
+		)
+		ctx.address = ip^
 		ctx.on_lobby_connect(ctx)
 
 	case .LobbyCreated:
@@ -169,7 +181,33 @@ callback_complete_handle :: proc(
 		assert(data.eResult == .OK)
 		ctx.lobby_id = data.ulSteamIDLobby
 		id_str := fmt.ctprintf("%v", ctx.steam_id)
+
+		interfaces, err := net.enumerate_interfaces()
+		address: net.IP4_Address
+		ensure(err == nil)
+		loop: for info in interfaces { 	// get current IP address
+			if .Up not_in info.link.state do continue
+			for lease in info.unicast {
+				switch &v in lease.address {
+				case net.IP4_Address:
+					if v != net.IP4_Loopback {
+						v = address
+						break loop
+					}
+				case net.IP6_Address:
+				}
+			}
+
+		}
+
 		steam.Matchmaking_SetLobbyData(ctx.matchmaking, ctx.lobby_id, LOBBY_DATA_KEY, id_str)
+		steam.Matchmaking_SetLobbyGameServer(
+			ctx.matchmaking,
+			ctx.lobby_id,
+			transmute(u32)(address),
+			0,
+			0,
+		)
 	}
 	log.info("Completed Callback:", callback.iCallback)
 }

@@ -17,13 +17,6 @@ import stbsp "vendor:stb/sprintf"
 import ase "./aseprite"
 import steam "./steam/"
 
-LOGIC_FPS :: 60
-LOGIC_TICK_RATE :: 1.0 / LOGIC_FPS
-NET_TICK_RATE :: 1.0 / 30
-
-LOG_PATH :: "berry.logs"
-STEAM :: #config(STEAM, false)
-
 
 EntityFlagBits :: enum u32 {
 	Controlabe,
@@ -55,6 +48,7 @@ Entity :: struct {
 EntityList :: struct {
 	list:          [dynamic]Entity,
 	FreeEntityIdx: Maybe(u64),
+	arena:         vmem.Arena,
 }
 
 CultCtxFlagBits :: enum u32 {
@@ -83,6 +77,7 @@ ActionToggles :: bit_set[Actions;u32]
 Player :: struct {
 	input_down:    ActionToggles,
 	input_pressed: ActionToggles,
+	enitty:        EntityHandle,
 	id:            u64,
 }
 
@@ -104,6 +99,23 @@ CultCtx :: struct {
 	net:              NetCtx,
 	steam:            steam.SteamCtx,
 }
+
+
+LOG_PATH :: "berry.logs"
+STEAM :: #config(STEAM, false)
+HEADLESS :: #config(HEADLESS, false)
+
+LOGIC_FPS :: 60
+LOGIC_TICK_RATE :: 1.0 / LOGIC_FPS
+NET_TICK_RATE :: 1.0 / 30
+// Global
+g_cult_debug := #config(CULT_DEBUG, ODIN_DEBUG)
+g_ctx: runtime.Context
+g_arena: vmem.Arena
+g_spall_ctx: spall.Context
+
+@(thread_local)
+spall_buffer: spall.Buffer
 
 rl_trace_to_log :: proc "c" (rl_level: rl.TraceLogLevel, message: cstring, args: ^c.va_list) {
 	context = g_ctx
@@ -194,17 +206,6 @@ entity_get :: proc(entities: EntityList, entity_handle: EntityHandle) -> ^Entity
 	return &entities.list[entity_handle.id]
 }
 
-HEADLESS :: #config(HEADLESS, false)
-
-// Global
-g_cult_debug := #config(CULT_DEBUG, ODIN_DEBUG)
-g_ctx: runtime.Context
-g_arena: vmem.Arena
-g_spall_ctx: spall.Context
-
-@(thread_local)
-spall_buffer: spall.Buffer
-
 @(instrumentation_enter)
 spall_enter :: proc "contextless" (
 	proc_address, call_site_return_address: rawptr,
@@ -253,6 +254,7 @@ main :: proc() {
 	defer spall.buffer_destroy(&g_spall_ctx, &spall_buffer)
 
 
+	// Setup Engine
 	when ODIN_DEBUG {
 		rl.SetConfigFlags({.BORDERLESS_WINDOWED_MODE})
 	} else {
@@ -283,10 +285,6 @@ main :: proc() {
 			.INTERACT = .E,
 		},
 	}
-	ctx.entities = {
-		FreeEntityIdx = nil,
-		list          = make([dynamic]Entity, 0, 128),
-	}
 
 	monitor_id: i32
 	monitor_count := rl.GetMonitorCount()
@@ -303,10 +301,8 @@ main :: proc() {
 	rl.SetWindowSize(i32(ctx.render_size.x), i32(ctx.render_size.y))
 	rl.SetWindowMonitor(monitor_id)
 
-
 	ctx.cameras = {{offset = ctx.render_size / 2, zoom = 1}}
 	defer vmem.arena_destroy(&g_arena)
-
 
 	elapsed_logic_time: f32
 	elapsed_net_time: f32
@@ -323,12 +319,12 @@ main :: proc() {
 				return
 			}
 
-			log.debug("player count:", ctx.player_count)
-
 			net_create_client(&ctx.net)
-			net_connect(&ctx.net)
+			net_connect(&ctx, steam_ctx.address)
+
+			//TODO(Abdul): get host data and sync
+
 			ctx.player_id = steam_ctx.lobby_size
-			game_init(&ctx, MAX_PLAYER_COUNT)
 		}
 
 
@@ -359,19 +355,16 @@ main :: proc() {
 				steam.update_callback(&ctx.steam, &g_arena)
 			}
 
-
-			if .Server in ctx.flags {
-				// logic_update_server()
-			} else {
-				// logic_update_client()
-			}
-
+            // if .Server not_in ctx.flags {
+            // }
+            net_update(&ctx)
+			//TODO(Abdul): update net
 		}
 
 
 		for elapsed_logic_time >= LOGIC_TICK_RATE {
 			elapsed_logic_time -= LOGIC_TICK_RATE
-			upadate_logic(&ctx, LOGIC_TICK_RATE)
+			update_logic(&ctx, LOGIC_TICK_RATE)
 		}
 
 
@@ -380,7 +373,7 @@ main :: proc() {
 			rl.ClearBackground(rl.WHITE)
 			defer rl.EndDrawing()
 
-			upadate_render(&ctx, delta_time)
+			update_render(&ctx, delta_time)
 
 			rl.DrawFPS(0, 0)
 		}
@@ -391,7 +384,6 @@ main :: proc() {
 	when STEAM {
 		steam.destroy(ctx.steam)
 	}
-
 }
 
 update_input :: proc(ctx: ^CultCtx, delta_time: f32) {
@@ -413,7 +405,7 @@ update_input :: proc(ctx: ^CultCtx, delta_time: f32) {
 	}
 }
 
-upadate_logic :: proc(ctx: ^CultCtx, delta_time: f32) {
+update_logic :: proc(ctx: ^CultCtx, delta_time: f32) {
 	if ctx.scene != .Game do return
 	for &entity in ctx.entities.list {
 		if (EntityFlags{.Controlabe} <= entity.flags) { 	// movement ctl
@@ -434,16 +426,16 @@ upadate_logic :: proc(ctx: ^CultCtx, delta_time: f32) {
 
 }
 
-upadate_render :: proc(ctx: ^CultCtx, delta_time: f32) {
+update_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 	switch ctx.scene {
 	case .Game:
-		update_game_scene(ctx, delta_time)
+		update_game_render(ctx, delta_time)
 	case .MainMenu:
 		if rl.GuiButton(
 			rl.Rectangle{(ctx.render_size.x / 2) - 100, (0 + ctx.render_size.y / 4), 200, 60},
 			"Play",
 		) {
-			game_init(ctx, 1)
+			game_init(ctx)
 		}
 		when STEAM {
 			x := (ctx.render_size.x / 2) - 100
@@ -477,44 +469,68 @@ upadate_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 
 }
 
-update_game_scene :: proc(ctx: ^CultCtx, delta_time: f32) {
+update_game_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 	// player := entity_get(ctx.entities, ctx.player)
 	// ctx.cameras[0].target = player.pos + (player.size / 2)
+
+
+	{ 	// Render UI
+
+	}
+
+	//HACK(abdul): update cam pos before draw cam
 	for &entity in ctx.entities.list {
 		if .Camera in entity.flags {
 			ctx.cameras[0].target = entity.pos + (entity.size / 2)
 		}
 	}
 
-	rl.BeginMode2D(ctx.cameras[0])
-	defer rl.EndMode2D()
-	rl.DrawRectangle(0, 0, 64, 64, rl.GRAY)
+	{ 	// Render world
+		rl.BeginMode2D(ctx.cameras[0])
+		defer rl.EndMode2D()
 
-	for &entity in ctx.entities.list {
-		rl.DrawRectanglePro(
-			rl.Rectangle{entity.pos.x, entity.pos.y, entity.size.x, entity.size.y},
-			[2]f32{},
-			0,
-			rl.RED,
+		rl.DrawRectangle(0, 0, 64, 64, rl.GRAY)
+
+		for &entity in ctx.entities.list {
+			rl.DrawRectanglePro(
+				rl.Rectangle{entity.pos.x, entity.pos.y, entity.size.x, entity.size.y},
+				[2]f32{},
+				0,
+				rl.RED,
+			)
+		}
+	}
+}
+
+
+game_init :: proc(ctx: ^CultCtx, max_player_count := 1, allocator := context.allocator) {
+	assert(max_player_count > 0)
+	assert(max_player_count <= MAX_PLAYER_COUNT)
+	ctx.scene = .Game
+	ctx.players = make([]Player, max_player_count, allocator)
+	if ctx.player_count == 1 {
+		ctx.flags += {.Server}
+		ctx.players[0].id = 0
+	}
+
+	err := vmem.arena_init_growing(&ctx.entities.arena)
+	ensure(err == nil)
+	entities_alloc := vmem.arena_allocator(&ctx.entities.arena)
+	ctx.entities = {
+		FreeEntityIdx = nil,
+		list          = make([dynamic]Entity, 0, 128, entities_alloc),
+	}
+
+	entity_add(&ctx.entities, Entity{flags = {.Controlabe, .Camera}, speed = 500, size = {32, 64}})
+
+	for i in 0 ..< (ctx.player_count - 1) {
+		entity_add(
+			&ctx.entities,
+			Entity{flags = {.Controlabe}, speed = 500, size = {32, 64}, pos = {0, 0}},
 		)
 	}
 }
 
-game_init :: proc(ctx: ^CultCtx, max_player_count := 1) {
-	assert(max_player_count > 0)
-	assert(max_player_count <= MAX_PLAYER_COUNT)
-	ctx.scene = .Game
-	if ctx.player_count == 1 {
-		ctx.flags += {.Server}
-	}
-
-	ctx.players = make([]Player, max_player_count)
-
-	entity_add(&ctx.entities, Entity{flags = {.Controlabe, .Camera}, speed = 500, size = {32, 64}})
-
-	log.debug(ctx.player_count)
-	for i in 0 ..< (ctx.player_count - 1) {
-		entity_add(&ctx.entities, Entity{flags = {}, speed = 500, size = {32, 64}, pos = {0, 0}})
-	}
-
+game_deinit :: proc(ctx: ^CultCtx) {
+	vmem.arena_destroy(&ctx.entities.arena)
 }

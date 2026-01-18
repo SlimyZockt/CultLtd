@@ -38,14 +38,10 @@ net_init :: proc(ctx: ^NetCtx, port: u16 = 7777) {
 	ctx.peers = make([]^ENet.Peer, MAX_PLAYER_COUNT)
 }
 
-net_create_server :: proc(ctx: ^NetCtx, address: cstring = "") {
-	if address != "" {
-		ENet.address_set_host(&ctx.address, address)
-	}
+net_create_server :: proc(ctx: ^NetCtx) {
+	assert(ctx.address.host == ENet.HOST_ANY)
 	ctx.host = ENet.host_create(&ctx.address, MAX_PLAYER_COUNT, NET_CHANNEL_COUNT, 0, 0)
 	assert(ctx.host != nil) //FIXME(abdul): proper err handling
-	// ctx.max_peer_count = max_player_count
-
 }
 
 net_create_client :: proc(ctx: ^NetCtx) {
@@ -57,18 +53,27 @@ net_deinit :: proc() {
 	ENet.deinitialize()
 }
 
-
-net_update :: proc(ctx: ^NetCtx) {
+net_update :: proc(ctx: ^CultCtx) {
 	event: ENet.Event
-	for ENet.host_service(ctx.host, &event, 0) > 0 {
+	for ENet.host_service(ctx.net.host, &event, 0) > 0 {
 
 		switch event.type {
 		case .CONNECT:
 			log.infof(
-				"Client connected form %v:%v",
+				"Client connected form %v:%v: with %v",
 				event.peer.address.host,
-				event.peer.address.host,
+				event.peer.address.port,
+				(^NetData)(event.peer.data),
 			)
+
+			data := (^NetData)(event.peer.data)
+
+			game_init(ctx, MAX_PLAYER_COUNT)
+			net_write(&ctx.net, {})
+			for i in 0 ..< ctx.steam.lobby_size {
+				player := &ctx.players[i]
+				player.id = u64(i)
+			}
 
 			event.peer.data = nil //TODO(abdul) set data
 		case .DISCONNECT:
@@ -105,13 +110,25 @@ net_disconnect :: proc(ctx: NetCtx, id: u64) {
 
 net_disconnect_all :: proc() {}
 
+NetConnectionData :: struct {
+	id: u8,
+	_:  u8,
+	_:  u8,
+	_:  u8,
+}
+#assert(size_of(NetConnectionData) == 4)
 
-net_connect :: proc(ctx: ^NetCtx, address: cstring = "") {
-	if address != "" {
-		ENet.address_set_host(&ctx.address, address)
-	}
+net_connect :: proc(ctx: ^CultCtx, address: u32 = 0x7f000001) {
+	ctx.net.address.host = address
 
-	ctx.peer_count += 1
-	ctx.peers[ctx.peer_count] = ENet.host_connect(ctx.host, &ctx.address, NET_CHANNEL_COUNT, 0)
-	assert(ctx.peers != nil)
+	ctx.net.peer_count += 1
+	assert(ctx.net.peers != nil)
+	ctx.net.peers[ctx.net.peer_count] = ENet.host_connect(
+		ctx.net.host,
+		&ctx.net.address,
+		NET_CHANNEL_COUNT,
+		0,
+	)
+
+	assert(ctx.net.peers[ctx.net.peer_count] != nil)
 }
