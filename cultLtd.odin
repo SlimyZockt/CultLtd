@@ -355,9 +355,11 @@ main :: proc() {
 				steam.update_callback(&ctx.steam, &g_arena)
 			}
 
-            // if .Server not_in ctx.flags {
-            // }
-            net_update(&ctx)
+			// if .Server not_in ctx.flags {
+			// }
+			if ctx.scene == .Game {
+				net_update(&ctx)
+			}
 			//TODO(Abdul): update net
 		}
 
@@ -442,7 +444,6 @@ update_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 			y := (0 + ctx.render_size.y / 4) + 70
 			if rl.GuiButton(rl.Rectangle{x, y, 200, 60}, "Host") {
 				steam.create_lobby(&ctx.steam)
-				net_create_server(&ctx.net)
 
 				game_init(ctx, MAX_PLAYER_COUNT)
 			}
@@ -511,6 +512,9 @@ game_init :: proc(ctx: ^CultCtx, max_player_count := 1, allocator := context.all
 	if ctx.player_count == 1 {
 		ctx.flags += {.Server}
 		ctx.players[0].id = 0
+		net_create_server(&ctx.net)
+	} else {
+
 	}
 
 	err := vmem.arena_init_growing(&ctx.entities.arena)

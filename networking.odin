@@ -54,6 +54,7 @@ net_deinit :: proc() {
 }
 
 net_update :: proc(ctx: ^CultCtx) {
+	assert(ctx.net.host != nil)
 	event: ENet.Event
 	for ENet.host_service(ctx.net.host, &event, 0) > 0 {
 
