@@ -283,6 +283,10 @@ main :: proc() {
 			.INTERACT = .E,
 		},
 	}
+	ctx.entities = {
+		FreeEntityIdx = nil,
+		list          = make([dynamic]Entity, 0, 128),
+	}
 
 	monitor_id: i32
 	monitor_count := rl.GetMonitorCount()
@@ -300,31 +304,28 @@ main :: proc() {
 	rl.SetWindowMonitor(monitor_id)
 
 
-	ctx.entities = {
-		FreeEntityIdx = nil,
-		list          = make([dynamic]Entity, 0, 128),
-	}
 	ctx.cameras = {{offset = ctx.render_size / 2, zoom = 1}}
 	defer vmem.arena_destroy(&g_arena)
 
-	entity_add(&ctx.entities, Entity{flags = {.Controlabe, .Camera}, speed = 500, size = {32, 64}})
 
 	elapsed_logic_time: f32
 	elapsed_net_time: f32
 
 	when STEAM {
 		ctx.steam.on_lobby_connect = proc(steam_ctx: ^steam.SteamCtx) {
-			if .Server in ctx.flags do return
+			if .Server in ctx.flags {
+				entity_add(
+					&ctx.entities,
+					Entity{flags = {.Controlabe}, speed = 500, size = {32, 64}, pos = {100, 100}},
+				)
+
+				return
+			}
 			net_create_client(&ctx.net)
 			net_connect(&ctx.net)
-			// net_write(&ctx.net, NetData{})
-			ctx.players = make([]Player, MAX_PLAYER_COUNT)
 			ctx.player_id = steam_ctx.lobby_size
-			entity_add(
-				&ctx.entities,
-				Entity{flags = {.Controlabe}, speed = 500, size = {32, 64}, pos = {100, 100}},
-			)
 			ctx.scene = .Game
+			game_init(&ctx, MAX_PLAYER_COUNT)
 		}
 
 
@@ -439,8 +440,7 @@ upadate_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 			rl.Rectangle{(ctx.render_size.x / 2) - 100, (0 + ctx.render_size.y / 4), 200, 60},
 			"Play",
 		) {
-			ctx.players = make([]Player, 1)
-			ctx.scene = .Game
+			game_init(ctx, 1)
 		}
 		when STEAM {
 			x := (ctx.render_size.x / 2) - 100
@@ -449,11 +449,7 @@ upadate_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 				steam.create_lobby(&ctx.steam)
 				net_create_server(&ctx.net)
 
-				ctx.players = make([]Player, MAX_PLAYER_COUNT)
-
-				ctx.scene = .Game
-				assert(.Client not_in ctx.flags)
-				ctx.flags += {.Server}
+				game_init(ctx, MAX_PLAYER_COUNT)
 			}
 		}
 	}
@@ -501,10 +497,18 @@ update_game_scene :: proc(ctx: ^CultCtx, delta_time: f32) {
 	}
 }
 
-game_init :: proc(ctx: ^CultCtx, max_player_count := 0) {
-
+game_init :: proc(ctx: ^CultCtx, max_player_count := 1) {
+	ctx.scene = .Game
 	if ctx.player_count == 1 {
+		ctx.flags += {.Server}
+	}
 
+	ctx.players = make([]Player, max_player_count)
+
+	entity_add(&ctx.entities, Entity{flags = {.Controlabe, .Camera}, speed = 500, size = {32, 64}})
+
+	for i in 0 ..= (ctx.player_count - 1) {
+		entity_add(&ctx.entities, Entity{flags = {.Controlabe}, speed = 500, size = {32, 64}})
 	}
 
 }
