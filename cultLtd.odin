@@ -317,11 +317,14 @@ main :: proc() {
 			if .Server in ctx.flags {
 				entity_add(
 					&ctx.entities,
-					Entity{flags = {.Controlabe}, speed = 500, size = {32, 64}, pos = {100, 100}},
+					Entity{flags = {}, speed = 500, size = {32, 64}, pos = {0, 0}},
 				)
 
 				return
 			}
+
+			log.debug("player count:", ctx.player_count)
+
 			net_create_client(&ctx.net)
 			net_connect(&ctx.net)
 			ctx.player_id = steam_ctx.lobby_size
@@ -509,8 +512,12 @@ game_init :: proc(ctx: ^CultCtx, max_player_count := 1) {
 
 	entity_add(&ctx.entities, Entity{flags = {.Controlabe, .Camera}, speed = 500, size = {32, 64}})
 
+	log.debug(ctx.player_count)
 	for i in 0 ..= (ctx.player_count - 1) {
-		entity_add(&ctx.entities, Entity{flags = {.Controlabe}, speed = 500, size = {32, 64}})
+		entity_add(
+			&ctx.entities,
+			Entity{flags = {.Controlabe}, speed = 500, size = {32, 64}, pos = {0, 0}},
+		)
 	}
 
 }

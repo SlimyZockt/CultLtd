@@ -187,7 +187,7 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 			log.infof("%v has entered the lobby", data.ulSteamIDUserChanged)
 			assert(ctx.on_lobby_connect != nil)
 			ctx.lobby_id = data.ulSteamIDLobby
-		// ctx.on_lobby_connect(ctx)
+			ctx.on_lobby_connect(ctx)
 		case .Disconnected, .Left, .Kicked, .Banned:
 			log.infof("%v has left the lobby", data.ulSteamIDUserChanged)
 			assert(ctx.on_lobby_disconnect != nil)
