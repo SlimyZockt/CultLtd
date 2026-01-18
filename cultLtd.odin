@@ -313,6 +313,7 @@ main :: proc() {
 
 	when STEAM {
 		ctx.steam.on_lobby_connect = proc(steam_ctx: ^steam.SteamCtx) {
+			ctx.player_count += 1
 			if .Server in ctx.flags {
 				entity_add(
 					&ctx.entities,
@@ -324,7 +325,6 @@ main :: proc() {
 			net_create_client(&ctx.net)
 			net_connect(&ctx.net)
 			ctx.player_id = steam_ctx.lobby_size
-			ctx.scene = .Game
 			game_init(&ctx, MAX_PLAYER_COUNT)
 		}
 
@@ -497,7 +497,11 @@ update_game_scene :: proc(ctx: ^CultCtx, delta_time: f32) {
 	}
 }
 
-game_init :: proc(ctx: ^CultCtx, max_player_count := 1) {
+game_init :: proc(
+	ctx: ^CultCtx,
+	max_player_count := 1,
+) where max_player_count > 0 &&
+	max_player_count <= MAX_PLAYER_COUNT {
 	ctx.scene = .Game
 	if ctx.player_count == 1 {
 		ctx.flags += {.Server}
