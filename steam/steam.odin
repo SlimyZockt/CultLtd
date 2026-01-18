@@ -173,7 +173,9 @@ callback_complete_handle :: proc(
 			nil,
 			nil,
 		)
-		ctx.address = ip^
+        if ip != nil {
+            ctx.address = ip^
+        }
 		ctx.on_lobby_connect(ctx)
 
 	case .LobbyCreated:
@@ -232,6 +234,11 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 			ctx.lobby_id = 0
 			ctx.on_lobby_disconnect(ctx)
 		}
+	case .LobbyGameCreated:
+		data := (^steam.LobbyGameCreated)(callback.pubParam)
+		log.infof("%v", transmute([4]u8)(data.unIP))
+		ctx.address = data.unIP
+
 	case .LobbyDataUpdate:
 		// Server & Peer
 		data := (^steam.LobbyDataUpdate)(callback.pubParam)
