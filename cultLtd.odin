@@ -320,7 +320,10 @@ main :: proc() {
 			// net_write(&ctx.net, NetData{})
 			ctx.players = make([]Player, MAX_PLAYER_COUNT)
 			ctx.player_id = steam_ctx.lobby_size
-			entity_add(&ctx.entities, Entity{flags = {.Controlabe}, speed = 500, size = {32, 64}, pos = {100, 100}})
+			entity_add(
+				&ctx.entities,
+				Entity{flags = {.Controlabe}, speed = 500, size = {32, 64}, pos = {100, 100}},
+			)
 			ctx.scene = .Game
 		}
 
@@ -344,13 +347,12 @@ main :: proc() {
 		elapsed_logic_time += delta_time
 		elapsed_net_time += delta_time
 
-		update_input(LOGIC_TICK_RATE, &ctx)
+		update_input(&ctx, LOGIC_TICK_RATE)
 
 		for elapsed_net_time >= NET_TICK_RATE {
 			elapsed_net_time -= NET_TICK_RATE
 			when STEAM {
 				steam.update_callback(&ctx.steam, &g_arena)
-
 			}
 
 
@@ -365,7 +367,7 @@ main :: proc() {
 
 		for elapsed_logic_time >= LOGIC_TICK_RATE {
 			elapsed_logic_time -= LOGIC_TICK_RATE
-			upadate_logic(LOGIC_TICK_RATE, &ctx)
+			upadate_logic(&ctx, LOGIC_TICK_RATE)
 		}
 
 
@@ -374,7 +376,7 @@ main :: proc() {
 			rl.ClearBackground(rl.WHITE)
 			defer rl.EndDrawing()
 
-			upadate_render(delta_time, &ctx)
+			upadate_render(&ctx, delta_time)
 
 			rl.DrawFPS(0, 0)
 		}
@@ -388,7 +390,7 @@ main :: proc() {
 
 }
 
-update_input :: proc(delta_time: f32, ctx: ^CultCtx) {
+update_input :: proc(ctx: ^CultCtx, delta_time: f32) {
 	if ctx.scene != .Game do return
 	input := &ctx.players[ctx.player_id].input_down
 
@@ -407,7 +409,7 @@ update_input :: proc(delta_time: f32, ctx: ^CultCtx) {
 	}
 }
 
-upadate_logic :: proc(delta_time: f32, ctx: ^CultCtx) {
+upadate_logic :: proc(ctx: ^CultCtx, delta_time: f32) {
 	if ctx.scene != .Game do return
 	for &entity in ctx.entities.list {
 		if (EntityFlags{.Controlabe} <= entity.flags) { 	// movement ctl
@@ -428,10 +430,10 @@ upadate_logic :: proc(delta_time: f32, ctx: ^CultCtx) {
 
 }
 
-upadate_render :: proc(delta_time: f32, ctx: ^CultCtx) {
+upadate_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 	switch ctx.scene {
 	case .Game:
-		update_game_scene(delta_time, ctx)
+		update_game_scene(ctx, delta_time)
 	case .MainMenu:
 		if rl.GuiButton(
 			rl.Rectangle{(ctx.render_size.x / 2) - 100, (0 + ctx.render_size.y / 4), 200, 60},
@@ -476,7 +478,7 @@ upadate_render :: proc(delta_time: f32, ctx: ^CultCtx) {
 
 }
 
-update_game_scene :: proc(delta_time: f32, ctx: ^CultCtx) {
+update_game_scene :: proc(ctx: ^CultCtx, delta_time: f32) {
 	// player := entity_get(ctx.entities, ctx.player)
 	// ctx.cameras[0].target = player.pos + (player.size / 2)
 	for &entity in ctx.entities.list {
@@ -497,6 +499,12 @@ update_game_scene :: proc(delta_time: f32, ctx: ^CultCtx) {
 			rl.RED,
 		)
 	}
+}
 
+game_init :: proc(ctx: ^CultCtx, max_player_count := 0) {
+
+	if ctx.player_count == 1 {
+
+	}
 
 }
