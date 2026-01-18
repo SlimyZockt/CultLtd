@@ -513,11 +513,8 @@ game_init :: proc(ctx: ^CultCtx, max_player_count := 1) {
 	entity_add(&ctx.entities, Entity{flags = {.Controlabe, .Camera}, speed = 500, size = {32, 64}})
 
 	log.debug(ctx.player_count)
-	for i in 0 ..= (ctx.player_count - 1) {
-		entity_add(
-			&ctx.entities,
-			Entity{flags = {.Controlabe}, speed = 500, size = {32, 64}, pos = {0, 0}},
-		)
+	for i in 0 ..< (ctx.player_count - 1) {
+		entity_add(&ctx.entities, Entity{flags = {}, speed = 500, size = {32, 64}, pos = {0, 0}})
 	}
 
 }
