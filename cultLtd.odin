@@ -17,7 +17,6 @@ import stbsp "vendor:stb/sprintf"
 import ase "./aseprite"
 import steam "./steam/"
 
-
 EntityFlagBits :: enum u32 {
 	Controlabe,
 	Camera,

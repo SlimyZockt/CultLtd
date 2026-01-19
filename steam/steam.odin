@@ -101,6 +101,8 @@ init :: proc(ctx: ^SteamCtx) {
 	assert(ctx.on_lobby_connect != nil)
 	assert(ctx.on_lobby_disconnect != nil)
 
+	// steam.NetworkingUtils_InitRelayNetworkAccess(ctx.network_util)
+
 	steam.Client_SetWarningMessageHook(ctx.client, steam_debug_text_hook)
 	steam.NetworkingUtils_SetDebugOutputFunction(
 		ctx.network_util,
@@ -122,8 +124,6 @@ update_callback :: proc(ctx: ^SteamCtx, arena: ^vmem.Arena) {
 
 	callback: steam.CallbackMsg
 	for (steam.ManualDispatch_GetNextCallback(h_pipe, &callback)) {
-		defer steam.ManualDispatch_FreeLastCallback(h_pipe)
-
 		if callback.iCallback == .SteamAPICallCompleted {
 			completed_callback := cast(^steam.SteamAPICallCompleted)callback.pubParam
 			param := make([dynamic]byte, completed_callback.cubParam)
@@ -138,10 +138,13 @@ update_callback :: proc(ctx: ^SteamCtx, arena: ^vmem.Arena) {
 			)
 			if failed || !ok do continue
 			callback_complete_handle(ctx, completed_callback, (&param[0]))
+			steam.ManualDispatch_FreeLastCallback(h_pipe)
+
 			continue
 		}
 
 		callback_handler(ctx, &callback)
+		steam.ManualDispatch_FreeLastCallback(h_pipe)
 
 	}
 }
@@ -166,16 +169,19 @@ callback_complete_handle :: proc(
 		)
 
 		ip: ^u32
+		_port: ^u16
+		_id: ^steam.CSteamID
 		ok := steam.Matchmaking_GetLobbyGameServer(
 			ctx.matchmaking,
 			data.ulSteamIDLobby,
 			ip,
-			nil,
-			nil,
+			_port,
+			_id,
 		)
-        if ip != nil {
-            ctx.address = ip^
-        }
+		if ip != nil {
+			ctx.address = ip^
+			log.debug(ctx.address)
+		}
 		ctx.on_lobby_connect(ctx)
 
 	case .LobbyCreated:
@@ -184,23 +190,24 @@ callback_complete_handle :: proc(
 		ctx.lobby_id = data.ulSteamIDLobby
 		id_str := fmt.ctprintf("%v", ctx.steam_id)
 
-		interfaces, err := net.enumerate_interfaces()
-		address: net.IP4_Address
-		ensure(err == nil)
-		loop: for info in interfaces { 	// get current IP address
-			if .Up not_in info.link.state do continue
-			for lease in info.unicast {
-				switch &v in lease.address {
-				case net.IP4_Address:
-					if v != net.IP4_Loopback {
-						v = address
-						break loop
-					}
-				case net.IP6_Address:
-				}
-			}
-
+		//HACK(Abdul): get IP address via dial. Switch to interface lookup (it isn't implemented)
+		target := net.IP4_Address{1, 1, 1, 1}
+		sock, err := net.dial_tcp_from_address_and_port(target, 80)
+		defer net.close(sock)
+		if err != nil {
+			fmt.printfln("Error dialing: %v", err)
+			return
 		}
+		local_endpoint, ep_err := net.bound_endpoint(sock)
+		if ep_err != nil {
+			fmt.printfln("Error getting bound endpoint: %v", ep_err)
+			return
+		}
+
+
+		address, ok := local_endpoint.address.(net.IP4_Address)
+		log.infof("local IP is: %v", address)
+		assert(ok)
 
 		steam.Matchmaking_SetLobbyData(ctx.matchmaking, ctx.lobby_id, LOBBY_DATA_KEY, id_str)
 		steam.Matchmaking_SetLobbyGameServer(
