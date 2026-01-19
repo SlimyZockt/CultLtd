@@ -168,6 +168,7 @@ callback_complete_handle :: proc(
 			steam.Matchmaking_GetNumLobbyMembers(ctx.matchmaking, data.ulSteamIDLobby),
 		)
 
+
 		ip: u32
 		_port: u16
 		_id: steam.CSteamID
@@ -189,27 +190,6 @@ callback_complete_handle :: proc(
 		assert(data.eResult == .OK)
 		ctx.lobby_id = data.ulSteamIDLobby
 		id_str := fmt.ctprintf("%v", ctx.steam_id)
-		//HACK(Abdul): get IP address via dial. Switch to interface lookup (it isn't implemented)
-		target := net.IP4_Address{1, 1, 1, 1}
-		sock, err := net.dial_tcp_from_address_and_port(target, 80)
-		defer net.close(sock)
-		if err != nil {
-			fmt.printfln("Error dialing: %v", err)
-			return
-		}
-		local_endpoint, ep_err := net.bound_endpoint(sock)
-		if ep_err != nil {
-			fmt.printfln("Error getting bound endpoint: %v", ep_err)
-			return
-		}
-
-
-		address, ok := local_endpoint.address.(net.IP4_Address)
-		log.infof("local IP is: %v", address)
-		assert(ok)
-
-		tmp := transmute(u32be)(address)
-		steam.Matchmaking_SetLobbyGameServer(ctx.matchmaking, ctx.lobby_id, u32(tmp), 0, 0)
 	// steam.Matchmaking_SetLobbyData(ctx.matchmaking, ctx.lobby_id, LOBBY_DATA_KEY, id_str)
 	}
 	log.info("Completed Callback:", callback.iCallback)
@@ -241,6 +221,39 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 		log.infof("LobbyGameCreated: %v", transmute([4]u8)(data.unIP))
 		ctx.address = data.unIP
 		ctx.on_lobby_connect(ctx)
+
+	case .LobbyEnter:
+		data := (^steam.LobbyEnter)(callback.pubParam)
+		if steam.Matchmaking_GetLobbyOwner(ctx.matchmaking, data.ulSteamIDLobby) == ctx.steam_id {
+			//HACK(Abdul): get IP address via dial. Switch to interface lookup (it isn't implemented)
+			target := net.IP4_Address{1, 1, 1, 1}
+			sock, err := net.dial_tcp_from_address_and_port(target, 80)
+			defer net.close(sock)
+			if err == nil {
+				fmt.printfln("Error dialing: %v", err)
+				target = net.IP4_Loopback
+			}
+			local_endpoint, ep_err := net.bound_endpoint(sock)
+			if ep_err != nil {
+				fmt.printfln("Error getting bound endpoint: %v", ep_err)
+				target = net.IP4_Loopback
+
+				return
+			}
+			address, ok := local_endpoint.address.(net.IP4_Address)
+			log.infof("local IP is: %v", address)
+			assert(ok)
+
+			tmp := transmute(u32be)(address)
+			steam.Matchmaking_SetLobbyGameServer(
+				ctx.matchmaking,
+				ctx.lobby_id,
+				u32(tmp),
+				7777,
+				ctx.steam_id,
+			)
+			log.info("SetLobbyGameServer called successfully.")
+		}
 
 
 	case .LobbyDataUpdate:
