@@ -168,28 +168,27 @@ callback_complete_handle :: proc(
 			steam.Matchmaking_GetNumLobbyMembers(ctx.matchmaking, data.ulSteamIDLobby),
 		)
 
-		ip: ^u32
-		_port: ^u16
-		_id: ^steam.CSteamID
+		ip: u32
+		_port: u16
+		_id: steam.CSteamID
 		ok := steam.Matchmaking_GetLobbyGameServer(
 			ctx.matchmaking,
 			data.ulSteamIDLobby,
-			ip,
-			_port,
-			_id,
+			&ip,
+			&_port,
+			&_id,
 		)
-		if ip != nil {
-			ctx.address = ip^
-			log.debug(ctx.address)
+		if ok {
+			log.info(transmute([4]u8)(ip))
+			ctx.address = ip
+			ctx.on_lobby_connect(ctx)
 		}
-		ctx.on_lobby_connect(ctx)
 
 	case .LobbyCreated:
 		data := (^steam.LobbyCreated)(param)
 		assert(data.eResult == .OK)
 		ctx.lobby_id = data.ulSteamIDLobby
 		id_str := fmt.ctprintf("%v", ctx.steam_id)
-
 		//HACK(Abdul): get IP address via dial. Switch to interface lookup (it isn't implemented)
 		target := net.IP4_Address{1, 1, 1, 1}
 		sock, err := net.dial_tcp_from_address_and_port(target, 80)
@@ -209,16 +208,12 @@ callback_complete_handle :: proc(
 		log.infof("local IP is: %v", address)
 		assert(ok)
 
-		steam.Matchmaking_SetLobbyData(ctx.matchmaking, ctx.lobby_id, LOBBY_DATA_KEY, id_str)
-		steam.Matchmaking_SetLobbyGameServer(
-			ctx.matchmaking,
-			ctx.lobby_id,
-			transmute(u32)(address),
-			0,
-			0,
-		)
+		tmp := transmute(u32be)(address)
+		steam.Matchmaking_SetLobbyGameServer(ctx.matchmaking, ctx.lobby_id, u32(tmp), 0, 0)
+	// steam.Matchmaking_SetLobbyData(ctx.matchmaking, ctx.lobby_id, LOBBY_DATA_KEY, id_str)
 	}
 	log.info("Completed Callback:", callback.iCallback)
+
 }
 
 
@@ -243,8 +238,10 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 		}
 	case .LobbyGameCreated:
 		data := (^steam.LobbyGameCreated)(callback.pubParam)
-		log.infof("%v", transmute([4]u8)(data.unIP))
+		log.infof("LobbyGameCreated: %v", transmute([4]u8)(data.unIP))
 		ctx.address = data.unIP
+		ctx.on_lobby_connect(ctx)
+
 
 	case .LobbyDataUpdate:
 		// Server & Peer
