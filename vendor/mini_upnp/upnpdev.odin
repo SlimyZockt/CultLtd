@@ -8,9 +8,9 @@
 package mini_upnp
 
 when ODIN_OS == .Linux {
-	foreign import lib {"upnpc.a"}
+	foreign import lib "libminiupnpc.a"
 } else when ODIN_OS == .Windows {
-	foreign import lib {"upnpc.lib"}
+	foreign import lib "libminiupnpc.lib"
 }
 
 
@@ -19,30 +19,29 @@ when ODIN_OS == .Linux {
 */
 Dev :: struct {
 	/*! \brief pointer to the next element */
-	pNext: ^Dev,
+	pNext:    ^Dev,
 
 	/*! \brief root description URL */
-	descURL: cstring,
+	descURL:  cstring,
 
 	/*! \brief ST: as advertised */
-	st: cstring,
+	st:       cstring,
 
 	/*! \brief USN: as advertised */
-	usn: cstring,
+	usn:      cstring,
 
 	/*! \brief IPv6 scope id of the network interface */
 	scope_id: u32,
 
 	/* C99 flexible array member */
 	/*! \brief buffer for descURL, st and usn */
-	buffer: [^]i8,
+	buffer:   [^]i8,
 }
 
-@(default_calling_convention="c", link_prefix="upnp")
+@(default_calling_convention = "c")
 foreign lib {
 	/*! \brief free list returned by upnpDiscover()
 	* \param[in] devlist linked list to free
 	*/
 	freeUPNPDevlist :: proc(devlist: ^Dev) ---
 }
-

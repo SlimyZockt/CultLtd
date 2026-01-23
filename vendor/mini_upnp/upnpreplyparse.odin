@@ -7,9 +7,9 @@
 package mini_upnp
 
 when ODIN_OS == .Linux {
-	foreign import lib {"upnpc.a"}
+	foreign import lib {"libminiupnpc.a"}
 } else when ODIN_OS == .Windows {
-	foreign import lib {"upnpc.lib"}
+	foreign import lib {"libminiupnpc.lib"}
 }
 
 
@@ -42,7 +42,7 @@ Name_Value_Parser_Data :: struct {
 	cdatalen: i32,
 }
 
-@(default_calling_convention="c", link_prefix="upnp")
+@(default_calling_convention="c")
 foreign lib {
 	/*!
 	* \brief Parse XML and fill the structure

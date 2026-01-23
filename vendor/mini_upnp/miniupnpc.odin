@@ -9,9 +9,9 @@
 package mini_upnp
 
 when ODIN_OS == .Linux {
-	foreign import lib {"upnpc.a"}
+	foreign import lib {"libminiupnpc.a"}
 } else when ODIN_OS == .Windows {
-	foreign import lib {"upnpc.lib"}
+	foreign import lib {"libminiupnpc.lib"}
 }
 
 
@@ -48,7 +48,7 @@ Arg :: struct {
 	val: cstring, /*!< \brief UPnP argument value */
 }
 
-@(default_calling_convention="c", link_prefix="upnp")
+@(default_calling_convention="c")
 foreign lib {
 	/*!
 	* \brief execute a UPnP method (SOAP action)
@@ -85,7 +85,7 @@ foreign lib {
 	* \param[out] error error code when NULL is returned
 	* \return NULL or a linked list
 	*/
-	Discover :: proc(delay: i32, multicastif: cstring, minissdpdsock: cstring, localport: i32, ipv6: i32, ttl: u8, error: ^i32) -> ^Dev ---
+	upnpDiscover :: proc(delay: i32, multicastif: cstring, minissdpdsock: cstring, localport: i32, ipv6: i32, ttl: u8, error: ^i32) -> ^Dev ---
 
 	/*!
 	* \brief Discover all UPnP devices on the network
@@ -105,7 +105,7 @@ foreign lib {
 	* \param[out] error error code when NULL is returned
 	* \return NULL or a linked list
 	*/
-	DiscoverAll :: proc(delay: i32, multicastif: cstring, minissdpdsock: cstring, localport: i32, ipv6: i32, ttl: u8, error: ^i32) -> ^Dev ---
+	upnpDiscoverAll :: proc(delay: i32, multicastif: cstring, minissdpdsock: cstring, localport: i32, ipv6: i32, ttl: u8, error: ^i32) -> ^Dev ---
 
 	/*!
 	* \brief Discover one type of UPnP devices
@@ -125,7 +125,7 @@ foreign lib {
 	* \param[out] error error code when NULL is returned
 	* \return NULL or a linked list
 	*/
-	DiscoverDevice :: proc(device: cstring, delay: i32, multicastif: cstring, minissdpdsock: cstring, localport: i32, ipv6: i32, ttl: u8, error: ^i32) -> ^Dev ---
+	upnpDiscoverDevice :: proc(device: cstring, delay: i32, multicastif: cstring, minissdpdsock: cstring, localport: i32, ipv6: i32, ttl: u8, error: ^i32) -> ^Dev ---
 
 	/*!
 	* \brief Discover one or several type of UPnP devices
@@ -146,7 +146,7 @@ foreign lib {
 	* \param[in] searchalltypes 0 to stop with the first type returning results
 	* \return NULL or a linked list
 	*/
-	DiscoverDevices :: proc(deviceTypes: [^]cstring, delay: i32, multicastif: cstring, minissdpdsock: cstring, localport: i32, ipv6: i32, ttl: u8, error: ^i32, searchalltypes: i32) -> ^Dev ---
+	upnpDiscoverDevices :: proc(deviceTypes: [^]cstring, delay: i32, multicastif: cstring, minissdpdsock: cstring, localport: i32, ipv6: i32, ttl: u8, error: ^i32, searchalltypes: i32) -> ^Dev ---
 
 	/*!
 	* \brief parse root XML description of a UPnP device
@@ -195,7 +195,7 @@ DISCONNECTED_IGD :: (3)
 /*! \brief UPnP device not recognized as an IGD */
 UNKNOWN_DEVICE :: (4)
 
-@(default_calling_convention="c", link_prefix="upnp")
+@(default_calling_convention="c")
 foreign lib {
 	/*!
 	* \brief look for a valid and possibly connected IGD in the list

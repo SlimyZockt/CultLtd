@@ -11,9 +11,9 @@ package mini_upnp
 import "core:c"
 
 when ODIN_OS == .Linux {
-	foreign import lib {"upnpc.a"}
+	foreign import lib {"libminiupnpc.a"}
 } else when ODIN_OS == .Windows {
-	foreign import lib {"upnpc.lib"}
+	foreign import lib {"libminiupnpc.lib"}
 }
 
 
@@ -36,7 +36,7 @@ UPNPCOMMAND_INVALID_RESPONSE :: (-4)
 /*! \brief Memory allocation error */
 UPNPCOMMAND_MEM_ALLOC_ERROR :: (-5)
 
-@(default_calling_convention="c", link_prefix="upnp")
+@(default_calling_convention="c")
 foreign lib {
 	/*! \brief WANCommonInterfaceConfig:GetTotalBytesSent
 	*

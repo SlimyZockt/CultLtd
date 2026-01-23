@@ -7,9 +7,9 @@
 package mini_upnp
 
 when ODIN_OS == .Linux {
-	foreign import lib {"upnpc.a"}
+	foreign import lib {"libminiupnpc.a"}
 } else when ODIN_OS == .Windows {
-	foreign import lib {"upnpc.lib"}
+	foreign import lib {"libminiupnpc.lib"}
 }
 
 
@@ -55,7 +55,7 @@ Port_Mapping_Parser_Data :: struct {
 	curelt: Port_Mapping_Elt, /*!< \brief currently parsed element */
 }
 
-@(default_calling_convention="c", link_prefix="upnp")
+@(default_calling_convention="c")
 foreign lib {
 	/*!
 	* \brief parse the NewPortListing part of GetListOfPortMappings response

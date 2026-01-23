@@ -4,6 +4,7 @@ package main
 import "base:runtime"
 import "core:c"
 import "core:flags"
+import "core:fmt"
 import "core:log"
 import "core:math/linalg"
 import vmem "core:mem/virtual"
@@ -11,6 +12,7 @@ import old_os "core:os"
 import os "core:os/os2"
 import "core:prof/spall"
 import "core:sync"
+import "vendor:ENet"
 import rl "vendor:raylib"
 import stbsp "vendor:stb/sprintf"
 
@@ -70,6 +72,7 @@ Actions :: enum u8 {
 Scenes :: enum u32 {
 	Game,
 	MainMenu,
+	Loading,
 }
 
 ActionToggles :: bit_set[Actions;u32]
@@ -95,7 +98,6 @@ CultCtx :: struct {
 	entities:         EntityList,
 	keymap:           [Actions]rl.KeyboardKey,
 	players:          []Player,
-	net:              NetCtx,
 	steam:            steam.SteamCtx,
 }
 
@@ -107,6 +109,7 @@ HEADLESS :: #config(HEADLESS, false)
 LOGIC_FPS :: 60
 LOGIC_TICK_RATE :: 1.0 / LOGIC_FPS
 NET_TICK_RATE :: 1.0 / 30
+MAX_PLAYER_COUNT :: 8
 // Global
 g_cult_debug := #config(CULT_DEBUG, ODIN_DEBUG)
 g_ctx: runtime.Context
@@ -141,6 +144,7 @@ rl_trace_to_log :: proc "c" (rl_level: rl.TraceLogLevel, message: cstring, args:
 	log_len: i32
 	for {
 		buf_len := i32(len(buf))
+
 		log_len = stbsp.vsnprintf(raw_data(buf), buf_len, message, args)
 		if log_len <= buf_len {
 			break
@@ -252,24 +256,6 @@ main :: proc() {
 	spall_buffer = spall.buffer_create(buffer_backing, u32(sync.current_thread_id()))
 	defer spall.buffer_destroy(&g_spall_ctx, &spall_buffer)
 
-
-	// Setup Engine
-	when ODIN_DEBUG {
-		rl.SetConfigFlags({.BORDERLESS_WINDOWED_MODE})
-	} else {
-		rl.SetConfigFlags({.FULLSCREEN_MODE, .BORDERLESS_WINDOWED_MODE})
-	}
-
-	rl.SetTraceLogLevel(.ALL)
-	rl.SetTraceLogCallback(rl_trace_to_log)
-	rl.InitWindow(0, 0, "CultLtd.")
-	rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), 30)
-	rl.SetTargetFPS(500)
-	defer rl.CloseWindow()
-	arena_err := vmem.arena_init_growing(&g_arena)
-	ensure(arena_err == nil)
-	context.allocator = vmem.arena_allocator(&g_arena)
-
 	@(static) ctx := CultCtx {
 		flags = {},
 		scene = .MainMenu,
@@ -284,6 +270,55 @@ main :: proc() {
 			.INTERACT = .E,
 		},
 	}
+
+	when STEAM {
+		ctx.steam.on_lobby_connecting = proc(steam_ctx: ^steam.SteamCtx) {
+			ctx.player_count += 1
+			if .Server in ctx.flags {
+				// entity_add(
+				// 	&ctx.entities,
+				// 	Entity{flags = {}, speed = 500, size = {32, 64}, pos = {0, 0}},
+				// )
+
+				return
+			}
+			ctx.scene = .Loading
+
+			ctx.player_id = steam_ctx.lobby_size
+
+			{ 	//TODO(Abdul): get host data and sync
+			}
+		}
+
+		ctx.steam.on_lobby_connected = proc(steam_ctx: ^steam.SteamCtx) {
+		}
+
+
+		ctx.steam.on_lobby_disconnect = proc(steam_ctx: ^steam.SteamCtx) {
+			if .Server in ctx.flags do return
+			ctx.scene = .MainMenu
+		}
+
+		steam.init(&ctx.steam)
+	}
+
+	// Setup Engine
+	when ODIN_DEBUG {
+		rl.SetConfigFlags({.BORDERLESS_WINDOWED_MODE})
+	} else {
+		rl.SetConfigFlags({.FULLSCREEN_MODE, .BORDERLESS_WINDOWED_MODE})
+	}
+
+	rl.SetTraceLogLevel(.ALL)
+	// rl.SetTraceLogCallback(rl_trace_to_log)
+	rl.InitWindow(0, 0, "CultLtd.")
+	rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), 30)
+	rl.SetTargetFPS(500)
+	defer rl.CloseWindow()
+	arena_err := vmem.arena_init_growing(&g_arena)
+	ensure(arena_err == nil)
+	context.allocator = vmem.arena_allocator(&g_arena)
+
 
 	monitor_id: i32
 	monitor_count := rl.GetMonitorCount()
@@ -306,41 +341,6 @@ main :: proc() {
 	elapsed_logic_time: f32
 	elapsed_net_time: f32
 
-	when STEAM {
-		ctx.steam.on_lobby_connect = proc(steam_ctx: ^steam.SteamCtx) {
-			ctx.player_count += 1
-			if .Server in ctx.flags {
-				entity_add(
-					&ctx.entities,
-					Entity{flags = {}, speed = 500, size = {32, 64}, pos = {0, 0}},
-				)
-
-				return
-			}
-
-			net_create_client(&ctx.net)
-			net_connect(&ctx, steam_ctx.address)
-
-			//TODO(Abdul): get host data and sync
-
-			ctx.player_id = steam_ctx.lobby_size
-		}
-
-
-		ctx.steam.on_lobby_disconnect = proc(steam_ctx: ^steam.SteamCtx) {
-			if .Server in ctx.flags do return
-			net_disconnect(ctx.net, 0)
-			net_deinit()
-			ctx.scene = .MainMenu
-		}
-
-		steam.init(&ctx.steam)
-	}
-
-	net_init(&ctx.net)
-	defer net_deinit()
-
-
 	for !rl.WindowShouldClose() {
 		delta_time := rl.GetFrameTime()
 		elapsed_logic_time += delta_time
@@ -354,20 +354,15 @@ main :: proc() {
 				steam.update_callback(&ctx.steam, &g_arena)
 			}
 
-			// if .Server not_in ctx.flags {
-			// }
-			if ctx.scene == .Game {
-				net_update(&ctx)
+			if ctx.scene != .MainMenu {
+				// net_update(&ctx)
 			}
-			//TODO(Abdul): update net
 		}
-
 
 		for elapsed_logic_time >= LOGIC_TICK_RATE {
 			elapsed_logic_time -= LOGIC_TICK_RATE
 			update_logic(&ctx, LOGIC_TICK_RATE)
 		}
-
 
 		{ 	// Render
 			rl.BeginDrawing()
@@ -429,21 +424,30 @@ update_logic :: proc(ctx: ^CultCtx, delta_time: f32) {
 
 update_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 	switch ctx.scene {
+	case .Loading:
+		rl.DrawText(
+			"Loading...",
+			i32(ctx.render_size.x / 2),
+			i32(ctx.render_size.y / 2),
+			32,
+			rl.DARKGRAY,
+		)
 	case .Game:
 		update_game_render(ctx, delta_time)
 	case .MainMenu:
-		if rl.GuiButton(
-			rl.Rectangle{(ctx.render_size.x / 2) - 100, (0 + ctx.render_size.y / 4), 200, 60},
-			"Play",
-		) {
+		get_ui_pos :: proc(render_size: [2]f32, i: f32) -> [2]f32 {
+			return {(render_size.x / 2) - 100, (render_size.y / 4) + i * 70}
+		}
+
+		btn_pos := get_ui_pos(ctx.render_size, 0)
+		if rl.GuiButton(rl.Rectangle{btn_pos.x, btn_pos.y, 200, 60}, "Play") {
 			game_init(ctx)
 		}
-		when STEAM {
-			x := (ctx.render_size.x / 2) - 100
-			y := (0 + ctx.render_size.y / 4) + 70
-			if rl.GuiButton(rl.Rectangle{x, y, 200, 60}, "Host") {
-				steam.create_lobby(&ctx.steam)
 
+		when STEAM {
+			btn_pos = get_ui_pos(ctx.render_size, 1)
+			if rl.GuiButton(rl.Rectangle{btn_pos.x, btn_pos.y, 200, 60}, "Host") {
+				steam.create_lobby(&ctx.steam)
 				game_init(ctx, MAX_PLAYER_COUNT)
 			}
 		}
@@ -511,7 +515,6 @@ game_init :: proc(ctx: ^CultCtx, max_player_count := 1, allocator := context.all
 	if ctx.player_count == 1 {
 		ctx.flags += {.Server}
 		ctx.players[0].id = 0
-		net_create_server(&ctx.net)
 	} else {
 
 	}
