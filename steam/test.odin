@@ -7,5 +7,7 @@ main :: proc() {
 
 	log.debugf("%x", transmute(u32be)(net.IP4_Loopback))
 
+	t: [dynamic]u64
+	log.debug(t)
 
 }

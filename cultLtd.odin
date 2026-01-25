@@ -3,6 +3,7 @@ package main
 
 import "base:runtime"
 import "core:c"
+import "core:container/queue"
 import "core:flags"
 import "core:fmt"
 import "core:log"
@@ -272,33 +273,6 @@ main :: proc() {
 	}
 
 	when STEAM {
-		ctx.steam.on_lobby_connecting = proc(steam_ctx: ^steam.SteamCtx) {
-			ctx.player_count += 1
-			if .Server in ctx.flags {
-				// entity_add(
-				// 	&ctx.entities,
-				// 	Entity{flags = {}, speed = 500, size = {32, 64}, pos = {0, 0}},
-				// )
-
-				return
-			}
-			ctx.scene = .Loading
-
-			ctx.player_id = steam_ctx.lobby_size
-
-			{ 	//TODO(Abdul): get host data and sync
-			}
-		}
-
-		ctx.steam.on_lobby_connected = proc(steam_ctx: ^steam.SteamCtx) {
-		}
-
-
-		ctx.steam.on_lobby_disconnect = proc(steam_ctx: ^steam.SteamCtx) {
-			if .Server in ctx.flags do return
-			ctx.scene = .MainMenu
-		}
-
 		steam.init(&ctx.steam)
 	}
 
@@ -351,7 +325,19 @@ main :: proc() {
 		for elapsed_net_time >= NET_TICK_RATE {
 			elapsed_net_time -= NET_TICK_RATE
 			when STEAM {
-				steam.update_callback(&ctx.steam, &g_arena)
+				events := steam.update_callback(&ctx.steam, &g_arena)
+				for events.len > 0 {
+					event := queue.pop_front(&events)
+					switch event {
+					case .Connected:
+					case .RelayInit:
+					case .LobbyConnect:
+					case .SocketConnect:
+					case .SocketDisonnect:
+					case .LobbyDisconnect:
+
+					}
+				}
 			}
 
 			if ctx.scene != .MainMenu {
@@ -426,12 +412,14 @@ update_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 	switch ctx.scene {
 	case .Loading:
 		rl.DrawText(
-			"Loading...",
+			"Loading",
 			i32(ctx.render_size.x / 2),
 			i32(ctx.render_size.y / 2),
 			32,
 			rl.DARKGRAY,
 		)
+
+
 	case .Game:
 		update_game_render(ctx, delta_time)
 	case .MainMenu:
