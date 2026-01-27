@@ -3789,7 +3789,7 @@ SteamNetworkingIdentity :: struct #packed {
 	szUnknownRawString: [128]u8,
 }
 
-SteamNetConnectionInfo :: struct #max_field_align(CALLBACK_ALIGN) {
+SteamNetConnectionInfo :: struct #packed {
 	identityRemote:          SteamNetworkingIdentity,
 	nUserData:               i64,
 	hListenSocket:           HSteamListenSocket,
@@ -3805,7 +3805,7 @@ SteamNetConnectionInfo :: struct #max_field_align(CALLBACK_ALIGN) {
 	reserved:                [63]u32,
 }
 
-SteamNetConnectionRealTimeStatus :: struct #max_field_align(CALLBACK_ALIGN) {
+SteamNetConnectionRealTimeStatus :: struct #min_field_align(CALLBACK_ALIGN) {
 	eState:                    ESteamNetworkingConnectionState,
 	nPing:                     i32,
 	flConnectionQualityLocal:  f32,

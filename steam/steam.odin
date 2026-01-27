@@ -192,6 +192,24 @@ update_callback :: proc(ctx: ^SteamCtx, arena: ^vmem.Arena) -> queue.Queue(Event
 	// 	}
 	// }
 
+
+	MAX_MESSAGE_COUNT :: 64
+	msgs: [MAX_MESSAGE_COUNT]^steam.SteamNetworkingMessage
+	msg_count := steam.NetworkingSockets_ReceiveMessagesOnConnection(
+		ctx.network_sockets,
+		ctx.connection,
+		raw_data(&msgs),
+		MAX_MESSAGE_COUNT,
+	)
+	if msg_count <= 0 do return g_queue
+	for i in 0 ..< msg_count {
+		msg := msgs[i]
+		defer steam.NetworkingMessage_t_Release(msg)
+
+		str, _ := strings.clone_from_ptr((^u8)(msg.pData), int(msg.cbSize))
+		log.infof("[PEER] Recived msg %v", str)
+	}
+
 	return g_queue
 }
 
@@ -237,13 +255,14 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 		}
 	case .SteamNetConnectionStatusChangedCallback:
 		data := (^steam.SteamNetConnectionStatusChangedCallback)(callback.pubParam)
-		log.debugf("%#w", data)
 		info := data.info
 
+		assert(ctx.socket != 0)
 
-		log.infof("Conn Update: %v -> %v", data.eOldState, info.eState)
+		log.infof("Connection Update: %v -> %v", data.eOldState, info.eState)
 
-		if ctx.socket != 0 && info.hListenSocket == ctx.socket {
+		if info.hListenSocket == ctx.socket {
+
 			if data.eOldState == .None && info.eState == .Connecting {
 				log.info("[HOST] New client connecting, accepting...")
 				res := steam.NetworkingSockets_AcceptConnection(ctx.network_sockets, data.hConn)
@@ -257,8 +276,29 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 						false,
 					)
 				}
+				// queue.push_back(&g_queue, Event.SocketConnect)
+			}
+
+
+			if data.eOldState == .FindingRoute && info.eState == .Connected {
+				msg := "hello form Host"
+				log.info("[HOST] Send msg:", msg)
+				res := steam.NetworkingSockets_SendMessageToConnection(
+					ctx.network_sockets,
+					data.hConn,
+					raw_data(msg),
+					u32(len(msg)),
+					steam.nSteamNetworkingSend_Reliable,
+					nil,
+				)
+				if res != .OK {
+					log.error("[Host] Cound not send Msg", res)
+					assert(false)
+				}
+
 				queue.push_back(&g_queue, Event.SocketConnect)
 			}
+
 		}
 
 		if info.eState == .ClosedByPeer || info.eState == .ProblemDetectedLocally {
