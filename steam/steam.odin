@@ -216,7 +216,9 @@ update_callback :: proc(ctx: ^SteamCtx, arena: ^vmem.Arena) {
 disconnect :: proc(ctx: ^SteamCtx) {
 	queue.destroy(&ctx.event_queue)
 	steam.Matchmaking_LeaveLobby(ctx.matchmaking, ctx.lobby_id)
-	steam.NetworkingSockets_CloseConnection(ctx.network_sockets, ctx.connection, 0, nil, false)
+	for p in ctx.peers {
+		steam.NetworkingSockets_CloseConnection(ctx.network_sockets, p.connection, 0, nil, false)
+	}
 	steam.NetworkingSockets_CloseListenSocket(ctx.network_sockets, ctx.socket)
 	steam.NetworkingSockets_DestroyPollGroup(ctx.network_sockets, ctx.poll_group)
 }
