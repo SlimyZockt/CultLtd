@@ -63,11 +63,12 @@ CultCtxFlags :: bit_set[CultCtxFlagBits;u32]
 
 Actions :: enum u8 {
 	DebugCross,
-	UP,
-	DOWN,
-	LEFT,
-	RIGHT,
-	INTERACT,
+	Up,
+	Down,
+	Left,
+	Right,
+	Interact,
+	Quit,
 }
 
 Scenes :: enum u32 {
@@ -264,11 +265,12 @@ main :: proc() {
 		player_id = 0,
 		keymap = {
 			.DebugCross = .F2,
-			.UP = .W,
-			.DOWN = .S,
-			.RIGHT = .D,
-			.LEFT = .A,
-			.INTERACT = .E,
+			.Up = .W,
+			.Down = .S,
+			.Right = .D,
+			.Left = .A,
+			.Interact = .E,
+			.Quit = .F1,
 		},
 	}
 
@@ -335,8 +337,11 @@ main :: proc() {
 						game_init(&ctx, MAX_PLAYER_COUNT)
 					case .Disconnected:
 					case .PeerConnected:
+						ctx.player_count += 1
+					// add_player
 					case .PeerDisconnected:
-
+					case .HostDisconnected:
+						game_deinit(&ctx)
 					}
 				}
 			}
@@ -364,8 +369,9 @@ main :: proc() {
 
 	}
 
+	game_deinit(&ctx)
 	when STEAM {
-		steam.destroy(ctx.steam)
+		steam.deinit(&ctx.steam)
 	}
 }
 
@@ -373,10 +379,10 @@ update_input :: proc(ctx: ^CultCtx, delta_time: f32) {
 	if ctx.scene != .Game do return
 	input := &ctx.players[ctx.player_id].input_down
 
-	input^ = rl.IsKeyDown(ctx.keymap[.UP]) ? input^ + {.UP} : input^ - {.UP}
-	input^ = rl.IsKeyDown(ctx.keymap[.DOWN]) ? input^ + {.DOWN} : input^ - {.DOWN}
-	input^ = rl.IsKeyDown(ctx.keymap[.LEFT]) ? input^ + {.LEFT} : input^ - {.LEFT}
-	input^ = rl.IsKeyDown(ctx.keymap[.RIGHT]) ? input^ + {.RIGHT} : input^ - {.RIGHT}
+	input^ = rl.IsKeyDown(ctx.keymap[.Up]) ? input^ + {.Up} : input^ - {.Up}
+	input^ = rl.IsKeyDown(ctx.keymap[.Down]) ? input^ + {.Down} : input^ - {.Down}
+	input^ = rl.IsKeyDown(ctx.keymap[.Left]) ? input^ + {.Left} : input^ - {.Left}
+	input^ = rl.IsKeyDown(ctx.keymap[.Right]) ? input^ + {.Right} : input^ - {.Right}
 
 
 	if rl.IsKeyPressed(ctx.keymap[.DebugCross]) {
@@ -385,6 +391,11 @@ update_input :: proc(ctx: ^CultCtx, delta_time: f32) {
 		} else {
 			ctx.flags += {.DebugCross}
 		}
+	}
+
+	if rl.IsKeyPressed(ctx.keymap[.Quit]) {
+		ctx.scene = .MainMenu
+		steam.disconnect(&ctx.steam)
 	}
 }
 
@@ -395,10 +406,10 @@ update_logic :: proc(ctx: ^CultCtx, delta_time: f32) {
 			input: [2]f32
 
 			input_down := ctx.players[ctx.player_id].input_down
-			if .UP in input_down do input.y -= 1
-			if .DOWN in input_down do input.y += 1
-			if .RIGHT in input_down do input.x += 1
-			if .LEFT in input_down do input.x -= 1
+			if .Up in input_down do input.y -= 1
+			if .Down in input_down do input.y += 1
+			if .Right in input_down do input.x += 1
+			if .Left in input_down do input.x -= 1
 
 			if input.x != 0 || input.y != 0 {
 				dir := linalg.normalize(input)
@@ -503,8 +514,6 @@ game_init :: proc(ctx: ^CultCtx, max_player_count := 1, allocator := context.all
 	if ctx.player_count == 1 {
 		ctx.flags += {.Server}
 		ctx.players[0].id = 0
-	} else {
-
 	}
 
 	err := vmem.arena_init_growing(&ctx.entities.arena)
@@ -526,5 +535,6 @@ game_init :: proc(ctx: ^CultCtx, max_player_count := 1, allocator := context.all
 }
 
 game_deinit :: proc(ctx: ^CultCtx) {
+	ctx.scene = .MainMenu
 	vmem.arena_destroy(&ctx.entities.arena)
 }
