@@ -269,9 +269,9 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 
 
 		} else {
-			// if data.eOldState == .FindingRoute && info.eState == .Connected {
-			// 	queue.push_back(&ctx.event_queue, Event.Connected)
-			// }
+			if data.eOldState == .FindingRoute && info.eState == .Connected {
+				queue.push_back(&ctx.event_queue, Event.Connected)
+			}
 		}
 
 		if info.eState == .ClosedByPeer || info.eState == .ProblemDetectedLocally {
