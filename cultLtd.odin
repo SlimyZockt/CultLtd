@@ -104,7 +104,7 @@ CultCtx :: struct {
 
 
 LOG_PATH :: "berry.logs"
-STEAM :: #config(STEAM, false)
+STEAM :: #config(STEAM, true)
 HEADLESS :: #config(HEADLESS, false)
 
 LOGIC_FPS :: 60
@@ -325,16 +325,17 @@ main :: proc() {
 		for elapsed_net_time >= NET_TICK_RATE {
 			elapsed_net_time -= NET_TICK_RATE
 			when STEAM {
-				events := steam.update_callback(&ctx.steam, &g_arena)
-				for events.len > 0 {
-					event := queue.pop_front(&events)
+				steam.update_callback(&ctx.steam, &g_arena)
+				for ctx.steam.event_queue.len > 0 {
+					event := queue.pop_front(&ctx.steam.event_queue)
 					switch event {
+					case .Connecting:
+						ctx.scene = .Loading
 					case .Connected:
-					case .RelayInit:
-					case .LobbyConnect:
-					case .SocketConnect:
-					case .SocketDisonnect:
-					case .LobbyDisconnect:
+						game_init(&ctx, MAX_PLAYER_COUNT)
+					case .Disconnected:
+					case .PeerConnected:
+					case .PeerDisconnected:
 
 					}
 				}
@@ -436,7 +437,6 @@ update_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 			btn_pos = get_ui_pos(ctx.render_size, 1)
 			if rl.GuiButton(rl.Rectangle{btn_pos.x, btn_pos.y, 200, 60}, "Host") {
 				steam.create_lobby(&ctx.steam)
-				game_init(ctx, MAX_PLAYER_COUNT)
 			}
 		}
 	}
