@@ -334,12 +334,14 @@ main :: proc() {
 					case .Connecting:
 						ctx.scene = .Loading
 					case .Connected:
+						log.debug(ctx.steam.connection)
 						game_init(&ctx, MAX_PLAYER_COUNT)
 					case .Disconnected:
 					case .PeerConnected:
 						ctx.player_count += 1
 					// add_player
 					case .PeerDisconnected:
+
 					case .HostDisconnected:
 						game_deinit(&ctx)
 					}
