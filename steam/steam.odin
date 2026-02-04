@@ -4,30 +4,27 @@ import steam "../vendor/steamworks/"
 import "base:runtime"
 import "core:c"
 import "core:container/queue"
-import "core:fmt"
 import "core:log"
 import vmem "core:mem/virtual"
-import "core:net"
 import "core:strings"
 
-
-Event :: enum u8 {
-	// None,
-	Connecting,
-	Connected,
-	Disconnected,
-	PeerDisconnected,
-	PeerConnected,
-	HostDisconnected,
+Event :: struct {
+	type: enum u8 {
+		Created,
+		ConnectingToHost,
+		PeerDisconnected,
+		PeerConnected,
+		DisconnectedFormHost,
+		ConnectedToHost,
+	},
+	// peer: Maybe(Peer),
+	id:   steam.CSteamID,
 }
 
-Actions :: enum u8 {
-	Connect,
-}
 
 LOBBY_DATA_KEY :: "key"
 SteamFlagBits :: enum u8 {
-	Server,
+	Host,
 }
 
 SteamFlags :: bit_set[SteamFlagBits;u8]
@@ -55,6 +52,7 @@ SteamCtx :: struct {
 	steam_id:        steam.CSteamID,
 	lobby_id:        steam.CSteamID,
 	host:            steam.SteamNetworkingIdentity,
+	host_id:         steam.CSteamID,
 	socket:          steam.HSteamListenSocket,
 	poll_group:      steam.HSteamNetPollGroup,
 	event_queue:     queue.Queue(Event),
@@ -71,6 +69,8 @@ g_ctx: runtime.Context
 @(private)
 g_arena: vmem.Arena
 
+@(private)
+steam_ctx: SteamCtx
 
 steam_debug_text_hook :: proc "c" (severity: c.int, debugText: cstring) {
 	// if you're running in the debugger, only warnings (nSeverity >= 1) will be sent
@@ -83,7 +83,6 @@ steam_debug_text_hook :: proc "c" (severity: c.int, debugText: cstring) {
 		panic("steam err")
 	}
 }
-
 
 steam_networtk_debug_to_log :: proc "c" (
 	net_level: steam.ESteamNetworkingSocketsDebugOutputType,
@@ -127,7 +126,7 @@ init :: proc(ctx: ^SteamCtx) {
 			`steam.InitFlat failed with code '%v' and message "%v"
             Steam Init failed. Make sure Steam is running.`,
 			err,
-			transmute(cstring)&err_msg[0],
+			cast(cstring)&err_msg[0],
 		)
 	}
 
@@ -154,19 +153,25 @@ init :: proc(ctx: ^SteamCtx) {
 		.Everything,
 		steam_networtk_debug_to_log,
 	)
+	ctx.poll_group = steam.NetworkingSockets_CreatePollGroup(ctx.network_sockets)
 
 	steam.ManualDispatch_Init()
 	steam.NetworkingUtils_InitRelayNetworkAccess(ctx.network_util)
 }
 
 
-update_callback :: proc(ctx: ^SteamCtx, arena: ^vmem.Arena) {
-	context.allocator = vmem.arena_allocator(arena)
-	temp := vmem.arena_temp_begin(arena)
+update_callback :: proc(
+	ctx: ^SteamCtx,
+	on_receive_msg: proc(msg: ^steam.SteamNetworkingMessage),
+) -> ^queue.Queue(Event) {
+	context.allocator = vmem.arena_allocator(&g_arena)
+	temp := vmem.arena_temp_begin(&g_arena)
 	defer vmem.arena_temp_end(temp)
 
 	h_pipe := steam.GetHSteamPipe()
 	steam.ManualDispatch_RunFrame(h_pipe)
+
+	// steam.ManualDispatch_FreeLastCallback()
 
 	callback: steam.CallbackMsg
 	for (steam.ManualDispatch_GetNextCallback(h_pipe, &callback)) {
@@ -194,13 +199,34 @@ update_callback :: proc(ctx: ^SteamCtx, arena: ^vmem.Arena) {
 
 		callback_handler(ctx, &callback)
 		steam.ManualDispatch_FreeLastCallback(h_pipe)
-
 	}
 
 
-	// TODO(abdul): Cleanup events
-	if .Server in ctx.flags do return
-	if ctx.connection == nil do return
+	if ctx.connection == nil do return &ctx.event_queue
+	// if .Connected not_in ctx.flags do return &ctx.event_queue
+	// TODO(abdul): Implement Receive MSG's form clients
+	if .Host in ctx.flags {
+		MAX_MESSAGE_COUNT :: 64
+		msgs: [MAX_MESSAGE_COUNT]^steam.SteamNetworkingMessage
+		assert(ctx.poll_group != 0)
+		msg_count := steam.NetworkingSockets_ReceiveMessagesOnPollGroup(
+			ctx.network_sockets,
+			ctx.poll_group,
+			raw_data(&msgs),
+			MAX_MESSAGE_COUNT,
+		)
+		if msg_count <= 0 do return &ctx.event_queue
+		for i in 0 ..< msg_count {
+			msg := msgs[i]
+			defer steam.NetworkingMessage_t_Release(msg)
+
+			on_receive_msg(msg)
+
+		}
+
+		return &ctx.event_queue
+	}
+
 	MAX_MESSAGE_COUNT :: 64
 	msgs: [MAX_MESSAGE_COUNT]^steam.SteamNetworkingMessage
 	msg_count := steam.NetworkingSockets_ReceiveMessagesOnConnection(
@@ -209,19 +235,22 @@ update_callback :: proc(ctx: ^SteamCtx, arena: ^vmem.Arena) {
 		raw_data(&msgs),
 		MAX_MESSAGE_COUNT,
 	)
-	if msg_count <= 0 do return
+	if msg_count <= 0 do return &ctx.event_queue
 	for i in 0 ..< msg_count {
 		msg := msgs[i]
 		defer steam.NetworkingMessage_t_Release(msg)
 
-		str, _ := strings.clone_from_ptr((^u8)(msg.pData), int(msg.cbSize))
-		log.infof("[PEER] Recived msg %v", str)
+		on_receive_msg(msg)
+
+		log.info("[PEER] Recived msg")
 	}
 
-	return
+
+	return &ctx.event_queue
 }
 
 disconnect :: proc(ctx: ^SteamCtx) {
+	ctx.flags -= {.Host}
 	steam.Matchmaking_LeaveLobby(ctx.matchmaking, ctx.lobby_id)
 
 	switch conn in ctx.connection {
@@ -245,7 +274,7 @@ disconnect :: proc(ctx: ^SteamCtx) {
 		)
 	}
 
-	ctx.flags -= {.Server}
+	ctx.connection = nil
 
 	steam.NetworkingSockets_CloseListenSocket(ctx.network_sockets, ctx.socket)
 	steam.NetworkingSockets_DestroyPollGroup(ctx.network_sockets, ctx.poll_group)
@@ -254,8 +283,17 @@ disconnect :: proc(ctx: ^SteamCtx) {
 
 deinit :: proc(ctx: ^SteamCtx) {
 	disconnect(ctx)
+
 	queue.destroy(&ctx.event_queue)
 	vmem.arena_destroy(&g_arena)
+
+	h_pipe := steam.GetHSteamPipe()
+	steam.ManualDispatch_RunFrame(h_pipe)
+	callback: steam.CallbackMsg
+	for (steam.ManualDispatch_GetNextCallback(h_pipe, &callback)) {
+		steam.ManualDispatch_FreeLastCallback(h_pipe)
+	}
+
 	steam.Shutdown()
 }
 
@@ -267,11 +305,7 @@ callback_complete_handle :: proc(
 	log.info("Completed Callback:", callback.iCallback)
 	#partial switch callback.iCallback {
 	case .LobbyEnter:
-		data := (^steam.LobbyEnter)(param)
 	case .LobbyCreated:
-		data := (^steam.LobbyCreated)(param)
-		assert(data.eResult == .OK)
-		ctx.lobby_id = data.ulSteamIDLobby
 	}
 }
 
@@ -279,6 +313,10 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 
 	log.info("Callback:", callback.iCallback)
 	#partial switch callback.iCallback {
+	case .LobbyCreated:
+		data := (^steam.LobbyCreated)(callback.pubParam)
+		assert(data.eResult == .OK)
+
 	case .LobbyChatUpdate:
 		// Server
 		data := (^steam.LobbyChatUpdate)(callback.pubParam)
@@ -288,10 +326,8 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 		case .Entered:
 			log.infof("[ALL] %v has entered the lobby", data.ulSteamIDUserChanged)
 			ctx.lobby_id = data.ulSteamIDLobby
-			queue.push_back(&ctx.event_queue, Event.PeerConnected)
 		case .Disconnected, .Left, .Kicked, .Banned:
 			log.infof("[ALL] %v has left the lobby", data.ulSteamIDUserChanged)
-			queue.push_back(&ctx.event_queue, Event.PeerDisconnected)
 		}
 	case .SteamNetConnectionStatusChangedCallback:
 		data := (^steam.SteamNetConnectionStatusChangedCallback)(callback.pubParam)
@@ -307,6 +343,9 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 			data.eOldState == .None &&
 			info.eState == .Connecting
 
+		// TODO(Abdul) check if identify is valid
+		remote_id := steam.NetworkingIdentity_GetSteamID(&info.identityRemote)
+		ctx.host_id = steam.NetworkingIdentity_GetSteamID(&ctx.host)
 
 		if is_host && can_accept {
 			log.info("[HOST] New client connecting, accepting...")
@@ -316,10 +355,9 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 				disconnect(ctx)
 			}
 
-			// TODO(Abdul) check if identify is valid
-			remote_id := steam.NetworkingIdentity_GetSteamID(&info.identityRemote)
 			for &peer in ctx.connection.(ConnectionsToClient) {
-				if peer.id == remote_id {
+				if peer.id == 0 {
+					peer.id = remote_id
 					peer.connection = data.hConn
 					break
 				}
@@ -333,6 +371,7 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 
 			assert(ok)
 
+
 		}
 
 		has_error := info.eState == .ClosedByPeer || info.eState == .ProblemDetectedLocally
@@ -340,23 +379,28 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 			log.info("Connection lost/closed")
 			disconnect(ctx)
 			if is_host {
-				queue.push_back(&ctx.event_queue, Event.HostDisconnected)
+				queue.push_back(&ctx.event_queue, Event{type = .PeerDisconnected, id = remote_id})
 			} else {
-				queue.push_back(&ctx.event_queue, Event.Disconnected)
+				queue.push_back(
+					&ctx.event_queue,
+					Event{type = .DisconnectedFormHost, id = ctx.host_id},
+				)
 			}
 		}
 
 		if !is_host && data.eOldState == .FindingRoute && info.eState == .Connected {
-			queue.push_back(&ctx.event_queue, Event.Connected)
+			queue.push_back(&ctx.event_queue, Event{type = .ConnectedToHost, id = ctx.host_id})
 		}
 
+
+		if is_host && data.eOldState == .FindingRoute && info.eState == .Connected {
+			queue.push_back(&ctx.event_queue, Event{type = .PeerConnected, id = remote_id})
+		}
 
 	case .LobbyEnter:
 		data := (^steam.LobbyEnter)(callback.pubParam)
 		ctx.lobby_id = data.ulSteamIDLobby
 		lobby_owner := steam.Matchmaking_GetLobbyOwner(ctx.matchmaking, data.ulSteamIDLobby)
-
-		log.info("lobby_owner", lobby_owner)
 		steam.NetworkingIdentity_SetSteamID(&ctx.host, lobby_owner)
 
 		assert(!steam.NetworkingIdentity_IsInvalid(&ctx.host))
@@ -373,26 +417,19 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 			steam.Matchmaking_GetNumLobbyMembers(ctx.matchmaking, data.ulSteamIDLobby),
 		)
 
-		g_alloc := vmem.arena_allocator(&g_arena)
-
 		if lobby_owner == ctx.steam_id { 	// HOST
-			log.infof("[HOST] Setting up lobby game server for %v", ctx.steam_id)
-			ctx.connection = make(ConnectionsToClient, ctx.max_lobby_size, g_alloc)
-
-			for &peer, i in ctx.connection.(ConnectionsToClient) {
-				peer.id = steam.Matchmaking_GetLobbyMemberByIndex(
-					ctx.matchmaking,
-					data.ulSteamIDLobby,
-					i32(i),
-				)
+			if ctx.lobby_size <= 1 {
+				queue.push_back(&ctx.event_queue, Event{type = .Created})
+				break
 			}
-			queue.push_back(&ctx.event_queue, Event.Connected)
+
+			queue.push_back(&ctx.event_queue, Event{type = .PeerConnected})
 			break
 		}
 
 		// PEER
 		assert(data.EChatRoomEnterResponse == u32(steam.EChatRoomEnterResponse.Success))
-		log.infof("[Peer] Setting up lobby game server")
+		log.infof("[PEER] Setting up lobby game server")
 
 
 		log.infof("[PEER] connect to %v", ctx.connection)
@@ -409,49 +446,49 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 		name := steam.Friends_GetFriendPersonaName(ctx.friends, data.steamIDFriend)
 		log.infof("[PEER] trying to connect to %v", name)
 		steam.Matchmaking_JoinLobby(ctx.matchmaking, data.steamIDLobby)
-		queue.push_back(&ctx.event_queue, Event.Connecting)
+		queue.push_back(&ctx.event_queue, Event{type = .ConnectingToHost})
 	}
 
 }
 
 create_lobby :: proc(ctx: ^SteamCtx, max_lobby_size: u16 = 8) {
-	ctx.flags += {.Server}
+	ctx.flags += {.Host}
+	ctx.max_lobby_size = max_lobby_size
+	g_alloc := vmem.arena_allocator(&g_arena)
+	ctx.connection = make_slice(ConnectionsToClient, ctx.max_lobby_size, g_alloc)
 	_ = steam.Matchmaking_CreateLobby(ctx.matchmaking, .FriendsOnly, i32(max_lobby_size))
 }
 
 
-write :: proc(ctx: ^SteamCtx) {
-	msg := "hello form Host"
-
+write :: proc(ctx: ^SteamCtx, data: ^$T, size: u32) {
 	switch conn in ctx.connection {
 	case ConnectionToHost:
-		log.info("[Peer] Send msg:", msg)
 		res := steam.NetworkingSockets_SendMessageToConnection(
 			ctx.network_sockets,
 			conn.connection,
-			raw_data(msg),
-			u32(len(msg)),
+			data,
+			size,
 			steam.nSteamNetworkingSend_Reliable,
 			nil,
 		)
 		if res != .OK {
-			log.error("[Peer] Cound not send Msg", res)
-			assert(false)
+			log.panic("[Peer] Cound not send Msg", res)
 		}
 	case ConnectionsToClient:
-		log.info("[Host] Send msg to all:", msg)
 		for p in conn {
+			if p.connection == 0 do continue
+			if p.id == 0 do continue
+
 			res := steam.NetworkingSockets_SendMessageToConnection(
 				ctx.network_sockets,
 				p.connection,
-				raw_data(msg),
-				u32(len(msg)),
+				data,
+				size,
 				steam.nSteamNetworkingSend_Reliable,
 				nil,
 			)
 			if res != .OK {
-				log.error("[Host] Cound not send Msg", res)
-				assert(false)
+				log.panic("[Host] Cound not send Msg", res)
 			}
 		}
 	}
