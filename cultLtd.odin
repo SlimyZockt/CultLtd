@@ -195,8 +195,6 @@ entity_add :: proc(entities: ^EntityList, entity: Entity) -> EntityHandle {
 	xar.append(&entities.list, entity)
 
 	idx := entities.list.len - 1
-	// entities.list[idx].flags += {.Alive}
-	// assert(.Alive in entities.list[idx].flags)
 	return EntityHandle{u64(idx), 0}
 }
 
@@ -386,7 +384,6 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 			game_init(ctx)
 		case .PeerDisconnected:
 		case .PeerConnected:
-			log.debug(ctx.player_id)
 			ctx.player_count += 1
 			ctx.players[PlayerID(event.id)] = {
 				entity = entity_add(&ctx.entities, PLAYER_ENTITY),
@@ -405,7 +402,6 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 	}
 
 	// TODO(Abdul): Write Inputs to Host
-
 	if .Server not_in ctx.flags {
 		steam.write(
 			&ctx.steam,
