@@ -106,8 +106,9 @@ CultCtx :: struct {
 }
 
 NetData :: struct {
-	id:     PlayerID,
-	player: Player,
+	id:            PlayerID,
+	player:        Player,
+	player_entity: Entity,
 }
 
 LOG_PATH :: "berry.logs"
@@ -211,6 +212,7 @@ entity_delete :: proc(entities: ^EntityList, entity_handle: EntityHandle) {
 }
 
 entity_get :: proc(entities: ^EntityList, entity_handle: EntityHandle) -> ^Entity {
+	if int(entity_handle.id) >= entities.list.len do return nil
 	entity := xar.get_ptr(&entities.list, entity_handle.id)
 	if entity.generation != entity_handle.generation {
 		log.error("Wrong generation entity")
@@ -397,15 +399,21 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 	if .Server in ctx.flags {
 		// TODO(Abdul): Write Events to Clients
 		for i, p in ctx.players {
-			steam.write(&ctx.steam, &NetData{i, p}, size_of(NetData))
+			steam.write(
+				&ctx.steam,
+				&NetData{i, p, entity_get(&ctx.entities, p.entity)^},
+				size_of(NetData),
+			)
+
 		}
 	}
 
 	// TODO(Abdul): Write Inputs to Host
 	if .Server not_in ctx.flags {
+		player := ctx.players[ctx.player_id]
 		steam.write(
 			&ctx.steam,
-			&NetData{ctx.player_id, ctx.players[ctx.player_id]},
+			&NetData{ctx.player_id, player, entity_get(&ctx.entities, player.entity)^},
 			size_of(NetData),
 		)
 	}
