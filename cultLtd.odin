@@ -211,15 +211,31 @@ entity_delete :: proc(entities: ^EntityList, entity_handle: EntityHandle) {
 	entities.FreeEntityIdx = entity_handle.id
 }
 
+@(rodata)
+ENTITY_ZERO: Entity
+
 entity_get :: proc(entities: ^EntityList, entity_handle: EntityHandle) -> ^Entity {
-	if int(entity_handle.id) >= entities.list.len do return nil
+	if int(entity_handle.id) >= entities.list.len do return &ENTITY_ZERO
 	entity := xar.get_ptr(&entities.list, entity_handle.id)
 	if entity.generation != entity_handle.generation {
 		log.error("Wrong generation entity")
-		return nil
+		return &ENTITY_ZERO
 	}
 
 	return entity
+}
+
+@(require_results)
+entity_set :: proc(entities: ^EntityList, entity_handle: EntityHandle, entity: Entity) -> bool {
+	if int(entity_handle.id) >= entities.list.len do return false
+	old_entity := xar.get_ptr(&entities.list, entity_handle.id)
+	if old_entity.generation != entity_handle.generation {
+		log.error("Wrong generation entity")
+		return false
+	}
+
+	xar.set(&entities.list, entity_handle.id, entity)
+	return true
 }
 
 @(instrumentation_enter)
@@ -325,7 +341,16 @@ main :: proc() {
 
 	on_receive_msg :: proc(msg: ^steamworks.SteamNetworkingMessage) {
 		data := (^NetData)(msg.pData)
-		ctx.players[PlayerID(data.id)] = data.player
+
+		if data.id != PlayerID(ctx.steam.steam_id) {
+			if _, exists := ctx.players[data.id]; !exists {
+				ok := entity_set(&ctx.entities, data.player.entity, data.player_entity)
+				assert(ok)
+			}
+
+			ctx.players[data.id] = data.player
+
+		}
 	}
 
 	when STEAM {
@@ -395,7 +420,7 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 		}
 	}
 
-	if ctx.scene == .MainMenu do return
+	if ctx.scene != .Game do return
 	if .Server in ctx.flags {
 		// TODO(Abdul): Write Events to Clients
 		for i, p in ctx.players {
@@ -608,6 +633,8 @@ game_init :: proc(ctx: ^CultCtx, allocator := context.allocator) {
 
 		}
 	}
+
+	log.debug(ctx.players)
 }
 
 game_deinit :: proc(ctx: ^CultCtx) {

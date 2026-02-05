@@ -419,6 +419,7 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 
 		if lobby_owner == ctx.steam_id { 	// HOST
 			if ctx.lobby_size <= 1 {
+
 				queue.push_back(&ctx.event_queue, Event{type = .Created})
 				break
 			}
