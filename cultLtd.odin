@@ -111,6 +111,18 @@ NetData :: struct {
 	player_entity: Entity,
 }
 
+NetMsgKind :: enum u8 {
+	State,
+	Input,
+}
+
+NetMsg :: struct {
+	kind:   NetMsgKind,
+	id:     PlayerID,
+	input:  ActionToggles,
+	entity: Entity,
+}
+
 LOG_PATH :: "berry.logs"
 STEAM :: #config(STEAM, true)
 HEADLESS :: #config(HEADLESS, false)
@@ -340,16 +352,24 @@ main :: proc() {
 
 
 	on_receive_msg :: proc(msg: ^steamworks.SteamNetworkingMessage) {
-		data := (^NetData)(msg.pData)
+		data := (^NetMsg)(msg.pData)
+		if data.id == PlayerID(ctx.steam.steam_id) {
+			return
+		}
 
-		if data.id != PlayerID(ctx.steam.steam_id) {
-			if _, exists := ctx.players[data.id]; !exists {
-				_ = entity_set(&ctx.entities, data.player.entity, data.player_entity)
-				// assert(ok)
-			}
-
-			ctx.players[data.id] = data.player
-
+		switch data.kind {
+		case .Input:
+			if .Server not_in ctx.flags do return
+			player, ok := ctx.players[data.id]
+			if !ok do return
+			player.input_down = data.input
+			ctx.players[data.id] = player
+		case .State:
+			if .Server in ctx.flags do return
+			player, ok := ctx.players[data.id]
+			if !ok do return
+			entity := entity_get(&ctx.entities, player.entity)
+			entity^ = data.entity
 		}
 	}
 
@@ -422,24 +442,22 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 
 	if ctx.scene != .Game do return
 	if .Server in ctx.flags {
-		// TODO(Abdul): Write Events to Clients
 		for i, p in ctx.players {
+			entity := entity_get(&ctx.entities, p.entity)^
 			steam.write(
 				&ctx.steam,
-				&NetData{i, p, entity_get(&ctx.entities, p.entity)^},
-				size_of(NetData),
+				&NetMsg{kind = .State, id = i, entity = entity},
+				size_of(NetMsg),
 			)
-
 		}
 	}
 
-	// TODO(Abdul): Write Inputs to Host
 	if .Server not_in ctx.flags {
 		player := ctx.players[ctx.player_id]
 		steam.write(
 			&ctx.steam,
-			&NetData{ctx.player_id, player, entity_get(&ctx.entities, player.entity)^},
-			size_of(NetData),
+			&NetMsg{kind = .Input, id = ctx.player_id, input = player.input_down},
+			size_of(NetMsg),
 		)
 	}
 }
