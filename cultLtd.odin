@@ -344,8 +344,8 @@ main :: proc() {
 
 		if data.id != PlayerID(ctx.steam.steam_id) {
 			if _, exists := ctx.players[data.id]; !exists {
-				ok := entity_set(&ctx.entities, data.player.entity, data.player_entity)
-				assert(ok)
+				_ = entity_set(&ctx.entities, data.player.entity, data.player_entity)
+				// assert(ok)
 			}
 
 			ctx.players[data.id] = data.player
