@@ -6,7 +6,6 @@ import "core:c"
 import "core:container/queue"
 import "core:log"
 import vmem "core:mem/virtual"
-import "core:strings"
 
 Event :: struct {
 	type: enum u8 {
@@ -160,10 +159,7 @@ init :: proc(ctx: ^SteamCtx) {
 }
 
 
-update_callback :: proc(
-	ctx: ^SteamCtx,
-	on_receive_msg: proc(msg: ^steam.SteamNetworkingMessage),
-) -> ^queue.Queue(Event) {
+update_callback :: proc(ctx: ^SteamCtx) -> ^queue.Queue(Event) {
 	context.allocator = vmem.arena_allocator(&g_arena)
 	temp := vmem.arena_temp_begin(&g_arena)
 	defer vmem.arena_temp_end(temp)
@@ -202,7 +198,16 @@ update_callback :: proc(
 	}
 
 
-	if ctx.connection == nil do return &ctx.event_queue
+	return &ctx.event_queue
+}
+
+ReceiveMsgCallback :: #type proc(msg: ^steam.SteamNetworkingMessage, user_data: rawptr)
+process_received_msg :: proc(
+	ctx: SteamCtx,
+	on_receive_msg: ReceiveMsgCallback,
+	user_data: rawptr,
+) {
+	if ctx.connection == nil do return
 	// if .Connected not_in ctx.flags do return &ctx.event_queue
 	// TODO(abdul): Implement Receive MSG's form clients
 	if .Host in ctx.flags {
@@ -215,16 +220,14 @@ update_callback :: proc(
 			raw_data(&msgs),
 			MAX_MESSAGE_COUNT,
 		)
-		if msg_count <= 0 do return &ctx.event_queue
+		if msg_count <= 0 do return
 		for i in 0 ..< msg_count {
 			msg := msgs[i]
 			defer steam.NetworkingMessage_t_Release(msg)
 
-			on_receive_msg(msg)
-
+			on_receive_msg(msg, user_data)
 		}
-
-		return &ctx.event_queue
+		return
 	}
 
 	MAX_MESSAGE_COUNT :: 64
@@ -235,18 +238,13 @@ update_callback :: proc(
 		raw_data(&msgs),
 		MAX_MESSAGE_COUNT,
 	)
-	if msg_count <= 0 do return &ctx.event_queue
+	if msg_count <= 0 do return
 	for i in 0 ..< msg_count {
 		msg := msgs[i]
 		defer steam.NetworkingMessage_t_Release(msg)
 
-		on_receive_msg(msg)
-
-		log.info("[PEER] Recived msg")
+		on_receive_msg(msg, user_data)
 	}
-
-
-	return &ctx.event_queue
 }
 
 disconnect :: proc(ctx: ^SteamCtx) {

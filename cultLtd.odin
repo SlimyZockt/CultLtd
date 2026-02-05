@@ -105,22 +105,10 @@ CultCtx :: struct {
 	steam:            steam.SteamCtx,
 }
 
-NetData :: struct {
+NetMsg :: struct {
 	id:            PlayerID,
 	player:        Player,
 	player_entity: Entity,
-}
-
-NetMsgKind :: enum u8 {
-	State,
-	Input,
-}
-
-NetMsg :: struct {
-	kind:   NetMsgKind,
-	id:     PlayerID,
-	input:  ActionToggles,
-	entity: Entity,
 }
 
 LOG_PATH :: "berry.logs"
@@ -131,6 +119,7 @@ LOGIC_FPS :: 60
 LOGIC_TICK_RATE :: 1.0 / LOGIC_FPS
 NET_TICK_RATE :: 1.0 / 30
 MAX_PLAYER_COUNT :: 8
+
 // Global
 g_cult_debug := #config(CULT_DEBUG, ODIN_DEBUG)
 g_ctx: runtime.Context
@@ -351,28 +340,6 @@ main :: proc() {
 	elapsed_net_time: f32
 
 
-	on_receive_msg :: proc(msg: ^steamworks.SteamNetworkingMessage) {
-		data := (^NetMsg)(msg.pData)
-		if data.id == PlayerID(ctx.steam.steam_id) {
-			return
-		}
-
-		switch data.kind {
-		case .Input:
-			if .Server not_in ctx.flags do return
-			player, ok := ctx.players[data.id]
-			if !ok do return
-			player.input_down = data.input
-			ctx.players[data.id] = player
-		case .State:
-			if .Server in ctx.flags do return
-			player, ok := ctx.players[data.id]
-			if !ok do return
-			entity := entity_get(&ctx.entities, player.entity)
-			entity^ = data.entity
-		}
-	}
-
 	when STEAM {
 		steam.init(&ctx.steam)
 	}
@@ -387,7 +354,7 @@ main :: proc() {
 		for elapsed_net_time >= NET_TICK_RATE {
 			elapsed_net_time -= NET_TICK_RATE
 			when STEAM {
-				_ = steam.update_callback(&ctx.steam, on_receive_msg)
+				_ = steam.update_callback(&ctx.steam)
 				update_network_steam(&ctx)
 			}
 
@@ -418,6 +385,23 @@ main :: proc() {
 }
 
 update_network_steam :: proc(ctx: ^CultCtx) {
+	on_receive_msg :: proc(msg: ^steamworks.SteamNetworkingMessage, ctx: rawptr) {
+		ctx := (^CultCtx)(ctx)
+		data := (^NetMsg)(msg.pData)
+
+		if data.id == PlayerID(ctx.steam.steam_id) do return // Don't change own player data
+
+		// log.debug(exists)
+		_, exists := ctx.players[data.id]
+		if exists {
+			ok := entity_set(&ctx.entities, data.player.entity, data.player_entity)
+			assert(ok)
+		}
+
+		ctx.players[data.id] = data.player
+	}
+
+
 	for ctx.steam.event_queue.len > 0 {
 		event := queue.pop_front(&ctx.steam.event_queue)
 		log.debug(event)
@@ -441,14 +425,12 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 	}
 
 	if ctx.scene != .Game do return
+	steam.process_received_msg(ctx.steam, on_receive_msg, ctx)
+
 	if .Server in ctx.flags {
 		for i, p in ctx.players {
 			entity := entity_get(&ctx.entities, p.entity)^
-			steam.write(
-				&ctx.steam,
-				&NetMsg{kind = .State, id = i, entity = entity},
-				size_of(NetMsg),
-			)
+			steam.write(&ctx.steam, &NetMsg{i, p, entity}, size_of(NetMsg))
 		}
 	}
 
@@ -456,7 +438,7 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 		player := ctx.players[ctx.player_id]
 		steam.write(
 			&ctx.steam,
-			&NetMsg{kind = .Input, id = ctx.player_id, input = player.input_down},
+			&NetMsg{ctx.player_id, player, entity_get(&ctx.entities, player.entity)^},
 			size_of(NetMsg),
 		)
 	}
