@@ -398,6 +398,8 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 			assert(ok)
 		}
 
+		if .Server in ctx.flags do return
+		// Client
 		ctx.players[data.id] = data.player
 	}
 
@@ -555,10 +557,10 @@ update_game_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 
 	}
 
-	//HACK(abdul): update cam pos before draw cam
-	for _, p in ctx.players {
-		entity := entity_get(&ctx.entities, p.entity)
-		if .Camera in entity.flags {
+	player, ok := ctx.players[ctx.player_id]
+	if ok {
+		entity := entity_get(&ctx.entities, player.entity)
+		if entity != nil {
 			ctx.cameras[0].target = entity.pos + (entity.size / 2)
 		}
 	}

@@ -415,6 +415,8 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 			steam.Matchmaking_GetNumLobbyMembers(ctx.matchmaking, data.ulSteamIDLobby),
 		)
 
+		// remote_id := steam.NetworkingIdentity_GetSteamID(&data.)
+
 		if lobby_owner == ctx.steam_id { 	// HOST
 			if ctx.lobby_size <= 1 {
 
@@ -422,7 +424,7 @@ callback_handler :: proc(ctx: ^SteamCtx, callback: ^steam.CallbackMsg) {
 				break
 			}
 
-			queue.push_back(&ctx.event_queue, Event{type = .PeerConnected})
+			// queue.push_back(&ctx.event_queue, Event{type = .PeerConnected})
 			break
 		}
 
