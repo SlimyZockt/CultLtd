@@ -513,11 +513,15 @@ update_logic :: proc(ctx: ^CultCtx, delta_time: f32) {
 update_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 	switch ctx.scene {
 	case .Loading:
-		rl.DrawText(
+		default_font := rl.GetFontDefault()
+		rl.DrawTextPro(
+			default_font,
 			"Loading",
-			i32(ctx.render_size.x / 2),
-			i32(ctx.render_size.y / 2),
+			[2]f32{ctx.render_size.x / 2, ctx.render_size.y / 2},
+			[2]f32{},
+			0,
 			32,
+			1,
 			rl.DARKGRAY,
 		)
 
@@ -583,6 +587,7 @@ update_game_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 	{ 	// Render world
 		rl.BeginMode2D(ctx.cameras[0])
 		defer rl.EndMode2D()
+		default_font := rl.GetFontDefault()
 
 		rl.DrawRectangle(0, 0, 64, 64, rl.GRAY)
 
@@ -591,7 +596,16 @@ update_game_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 		for entity in xar.iterate_by_ptr(&entity_iter) {
 			defer i += 1
 			cstr := fmt.ctprintf("%v:%v", i, entity.generation)
-			rl.DrawText(cstr, i32(entity.pos.x), i32(entity.pos.y - entity.size.y), 32, rl.BLACK)
+			rl.DrawTextPro(
+				default_font,
+				cstr,
+				[2]f32{entity.pos.x, entity.pos.y - entity.size.y},
+				[2]f32{},
+				0,
+				32,
+				1,
+				rl.BLACK,
+			)
 			rl.DrawRectanglePro(
 				rl.Rectangle{entity.pos.x, entity.pos.y, entity.size.x, entity.size.y},
 				[2]f32{},
