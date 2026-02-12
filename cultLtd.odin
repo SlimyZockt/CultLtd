@@ -37,13 +37,17 @@ EntityHandle :: struct {
 	generation: u64,
 }
 
+EntitySyncData :: struct {
+	speed:     f32,
+	flags:     EntityFlags,
+	using pos: [2]f32,
+	size:      [2]f32,
+}
+
 Entity :: struct {
 	generation:        u64,
-	speed:             f32,
-	flags:             EntityFlags,
 	texture_id:        TextureId,
-	using pos:         [2]f32,
-	size:              [2]f32,
+	using net:         EntitySyncData,
 	NextFreeEntityIdx: Maybe(u64),
 }
 
@@ -106,9 +110,19 @@ CultCtx :: struct {
 }
 
 NetMsg :: struct {
-	id:            PlayerID,
-	player:        Player,
-	player_entity: Entity,
+	id:          PlayerID,
+	player:      Player,
+	entity_data: EntitySyncData,
+}
+
+NetworkDataType :: enum u8 {
+	UPDATE,
+	INIT,
+}
+
+NetworkMsgHeader :: struct #packed {
+	type: NetworkDataType,
+	size: u64,
 }
 
 LOG_PATH :: "berry.logs"
@@ -117,7 +131,7 @@ HEADLESS :: #config(HEADLESS, false)
 
 LOGIC_FPS :: 60
 LOGIC_TICK_RATE :: 1.0 / LOGIC_FPS
-NET_TICK_RATE :: 1.0 / 30
+NET_TICK_RATE :: 1.0 / 60
 MAX_PLAYER_COUNT :: 8
 
 // Global
