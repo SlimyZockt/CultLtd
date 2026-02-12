@@ -83,10 +83,15 @@ Scenes :: enum u32 {
 
 ActionToggles :: distinct bit_set[Actions;u32]
 PlayerID :: distinct u64
-Player :: struct {
+
+PlayerSyncData :: struct {
 	input_down:    ActionToggles,
 	input_pressed: ActionToggles,
-	entity:        EntityHandle,
+}
+
+Player :: struct {
+	using net: PlayerSyncData,
+	entity:    EntityHandle,
 }
 
 
@@ -109,20 +114,28 @@ CultCtx :: struct {
 	steam:            steam.SteamCtx,
 }
 
-NetMsg :: struct {
-	id:          PlayerID,
-	player:      Player,
-	entity_data: EntitySyncData,
-}
-
 NetworkDataType :: enum u8 {
-	UPDATE,
-	INIT,
+	ServerSnapshot,
+	ClientInput,
 }
 
 NetworkMsgHeader :: struct #packed {
 	type: NetworkDataType,
-	size: u64,
+}
+
+MAX_ENTITY_SYNC_COUNT :: u64(1000 / size_of(Entity))
+#assert(MAX_ENTITY_SYNC_COUNT > 0)
+
+NetworkServerSnapshot :: struct #packed {
+	using header: NetworkMsgHeader,
+	entity_count: u64,
+	entities:     [MAX_ENTITY_SYNC_COUNT]EntitySyncData,
+}
+
+NetworkClientInput :: struct #packed {
+	using header: NetworkMsgHeader,
+	id:           PlayerID,
+	using player: PlayerSyncData,
 }
 
 LOG_PATH :: "berry.logs"
@@ -315,6 +328,8 @@ main :: proc() {
 		},
 	}
 
+	log.debug(MAX_ENTITY_SYNC_COUNT)
+
 	// Setup Engine
 	when ODIN_DEBUG {
 		rl.SetConfigFlags({.BORDERLESS_WINDOWED_MODE})
@@ -399,24 +414,24 @@ main :: proc() {
 }
 
 update_network_steam :: proc(ctx: ^CultCtx) {
-	on_receive_msg :: proc(msg: ^steamworks.SteamNetworkingMessage, ctx: rawptr) {
-		ctx := (^CultCtx)(ctx)
-		data := (^NetMsg)(msg.pData)
+	on_receive_msg :: proc(msg: ^steamworks.SteamNetworkingMessage, user_data: rawptr) {
+		ctx := (^CultCtx)(user_data)
+		header := (^NetworkMsgHeader)(msg.pData)
 
-		if data.id == PlayerID(ctx.steam.steam_id) do return // Don't change own player data
+		switch header.type {
+		case .ServerSnapshot:
+			assert(.Server not_in ctx.flags)
 
-		// log.debug(exists)
-		_, exists := ctx.players[data.id]
-		if exists {
-			ok := entity_set(&ctx.entities, data.player.entity, data.player_entity)
-			assert(ok)
+
+		case .ClientInput:
+			assert(.Server in ctx.flags)
+			data := (^NetworkClientInput)(msg.pData)
+			player, ok := ctx.players[data.id]
+			if !ok do return
+			player.net = data.player
+			ctx.players[data.id] = player
 		}
-
-		if .Server in ctx.flags do return
-		// Client
-		ctx.players[data.id] = data.player
 	}
-
 
 	for ctx.steam.event_queue.len > 0 {
 		event := queue.pop_front(&ctx.steam.event_queue)
@@ -444,19 +459,33 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 	steam.process_received_msg(ctx.steam, on_receive_msg, ctx)
 
 	if .Server in ctx.flags {
-		for i, p in ctx.players {
-			entity := entity_get(&ctx.entities, p.entity)^
-			steam.write(&ctx.steam, &NetMsg{i, p, entity}, size_of(NetMsg))
+		iter := xar.iterator(&ctx.entities.list)
+		packet := NetworkServerSnapshot {
+			type = .ServerSnapshot,
 		}
+		for entity in xar.iterate_by_val(&iter) {
+			if .Sync in entity.flags {
+				packet.entities[packet.entity_count] = entity
+				packet.entity_count += 1
+			}
+
+			if packet.entity_count == MAX_ENTITY_SYNC_COUNT {
+				steam.write(&ctx.steam, &packet, size_of(packet))
+			}
+		}
+		if packet.entity_count >= 0 {
+			steam.write(&ctx.steam, &packet, size_of(packet))
+		}
+
 	}
 
 	if .Server not_in ctx.flags {
 		player := ctx.players[ctx.player_id]
-		steam.write(
-			&ctx.steam,
-			&NetMsg{ctx.player_id, player, entity_get(&ctx.entities, player.entity)^},
-			size_of(NetMsg),
-		)
+		packet := NetworkClientInput {
+			type   = .ClientInput,
+			player = player.net,
+		}
+		steam.write(&ctx.steam, &packet, size_of(packet))
 	}
 }
 
