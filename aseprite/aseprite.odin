@@ -1,7 +1,7 @@
 package aseprite
 
 import "core:log"
-import os "core:os/os2"
+import os "core:os"
 import fp "core:path/filepath"
 import "core:strings"
 

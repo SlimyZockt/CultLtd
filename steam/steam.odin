@@ -61,7 +61,6 @@ SteamCtx :: struct {
 	},
 }
 
-
 @(private)
 g_ctx: runtime.Context
 

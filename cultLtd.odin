@@ -9,8 +9,7 @@ import "core:fmt"
 import "core:log"
 import "core:math/linalg"
 import vmem "core:mem/virtual"
-import old_os "core:os"
-import os "core:os/os2"
+import os "core:os"
 import "core:prof/spall"
 import "core:sync"
 import rl "vendor:raylib"
@@ -24,8 +23,8 @@ EntityFlagBits :: enum u32 {
 	Controlabe,
 	Camera,
 	Sync,
-	Alive,
-	// Non;,
+	Dead,
+	Destroy,
 }
 
 EntityFlags :: bit_set[EntityFlagBits;u32]
@@ -38,10 +37,11 @@ EntityHandle :: struct {
 }
 
 EntitySyncData :: struct {
-	speed:     f32,
-	flags:     EntityFlags,
-	using pos: [2]f32,
-	size:      [2]f32,
+	speed:      f32,
+	flags:      EntityFlags,
+	using pos:  [2]f32,
+	size:       [2]f32,
+	network_id: EntityNetworkId,
 }
 
 Entity :: struct {
@@ -102,16 +102,19 @@ RenderCtx :: struct {
 	textures:    [dynamic]rl.Texture,
 }
 
+EntityNetworkId :: distinct u64
 CultCtx :: struct {
-	player_count:     u16,
-	max_player_count: u16,
-	flags:            CultCtxFlags,
-	player_id:        PlayerID,
-	using render_ctx: RenderCtx,
-	entities:         EntityList,
-	keymap:           [Actions]rl.KeyboardKey,
-	players:          map[PlayerID]Player,
-	steam:            steam.SteamCtx,
+	player_count:                u16,
+	max_player_count:            u16,
+	flags:                       CultCtxFlags,
+	player_id:                   PlayerID,
+	network_next_id_server:      EntityNetworkId,
+	using render_ctx:            RenderCtx,
+	entities:                    EntityList,
+	keymap:                      [Actions]rl.KeyboardKey,
+	players:                     map[PlayerID]Player,
+	network_id_to_handle_client: map[EntityNetworkId]EntityHandle,
+	steam:                       steam.SteamCtx,
 }
 
 NetworkDataType :: enum u8 {
@@ -123,7 +126,7 @@ NetworkMsgHeader :: struct #packed {
 	type: NetworkDataType,
 }
 
-MAX_ENTITY_SYNC_COUNT :: u64(1000 / size_of(Entity))
+MAX_ENTITY_SYNC_COUNT :: u64(1000 / size_of(EntitySyncData))
 #assert(MAX_ENTITY_SYNC_COUNT > 0)
 
 NetworkServerSnapshot :: struct #packed {
@@ -139,11 +142,16 @@ NetworkClientInput :: struct #packed {
 }
 
 LOG_PATH :: "berry.logs"
-STEAM :: #config(STEAM, true)
-HEADLESS :: #config(HEADLESS, false)
 
-LOGIC_FPS :: 60
-LOGIC_TICK_RATE :: 1.0 / LOGIC_FPS
+Platform :: enum u8 {
+	NONE  = 0,
+	STEAM = 1,
+	// HEADLESS
+}
+
+PLATFORM :: Platform(#config(PLATFORM, Platform.NONE))
+
+LOGIC_TICK_RATE :: 1.0 / 60
 NET_TICK_RATE :: 1.0 / 60
 MAX_PLAYER_COUNT :: 8
 
@@ -154,9 +162,8 @@ g_arena: vmem.Arena
 g_spall_ctx: spall.Context
 
 PLAYER_ENTITY :: Entity {
-	flags = {.Controlabe},
-	speed = 500,
-	size  = {32, 64},
+	flags = {.Controlabe, .Sync},
+	net = {speed = 500, size = {32, 64}},
 }
 
 @(thread_local)
@@ -183,25 +190,48 @@ rl_trace_to_log :: proc "c" (rl_level: rl.TraceLogLevel, message: cstring, args:
 		log.panicf("unexpected log level %v", rl_level)
 	}
 
-	@(static) buf: [dynamic]byte
-	log_len: i32
-	for {
-		buf_len := i32(len(buf))
-
-		log_len = stbsp.vsnprintf(raw_data(buf), buf_len, message, args)
-		if log_len <= buf_len {
-			break
-		}
-
-		non_zero_resize(&buf, max(128, len(buf) * 2))
+	if message == nil {
+		context.logger.procedure(
+			context.logger.data,
+			level,
+			"<nil raylib log message>",
+			context.logger.options,
+		)
+		return
 	}
 
+	temp := vmem.arena_temp_begin(&g_arena)
+	defer vmem.arena_temp_end(temp)
+
+	arena_alloc := vmem.arena_allocator(&g_arena)
+	buf := make([]byte, 4096, arena_alloc)
+	log_len := stbsp.vsnprintf(raw_data(buf), i32(len(buf)), message, args)
+
+	if log_len < 0 {
+		context.logger.procedure(
+			context.logger.data,
+			level,
+			"<raylib format error>",
+			context.logger.options,
+		)
+		return
+	}
+
+	msg_len := min(int(log_len), len(buf) - 1)
 	context.logger.procedure(
 		context.logger.data,
 		level,
-		string(buf[:log_len]),
+		string(buf[:msg_len]),
 		context.logger.options,
 	)
+}
+
+entity_add_sync_server :: proc(ctx: ^CultCtx, entity: ^Entity) -> EntityHandle {
+	assert(.Sync in entity.flags)
+	assert(.Server in ctx.flags)
+	entity.network_id = ctx.network_next_id_server
+	ctx.network_next_id_server += 1
+	return entity_add(&ctx.entities, entity^)
 }
 
 entity_add :: proc(entities: ^EntityList, entity: Entity) -> EntityHandle {
@@ -211,7 +241,6 @@ entity_add :: proc(entities: ^EntityList, entity: Entity) -> EntityHandle {
 		entities.FreeEntityIdx = new_entity.NextFreeEntityIdx
 
 		new_entity^ = entity
-		// new_entity.flags += {.Alive}
 		new_entity.NextFreeEntityIdx = nil
 		new_entity.generation = generation
 
@@ -239,31 +268,18 @@ entity_delete :: proc(entities: ^EntityList, entity_handle: EntityHandle) {
 	entities.FreeEntityIdx = entity_handle.id
 }
 
-@(rodata)
-ENTITY_ZERO: Entity
 
-entity_get :: proc(entities: ^EntityList, entity_handle: EntityHandle) -> ^Entity {
-	if int(entity_handle.id) >= entities.list.len do return &ENTITY_ZERO
+entity_get :: proc(entities: ^EntityList, entity_handle: EntityHandle) -> (^Entity, bool) {
+	@(static) entity_stub: Entity
+
+	if int(entity_handle.id) >= entities.list.len do return &entity_stub, false
 	entity := xar.get_ptr(&entities.list, entity_handle.id)
 	if entity.generation != entity_handle.generation {
 		log.error("Wrong generation entity")
-		return &ENTITY_ZERO
+		return &entity_stub, false
 	}
 
-	return entity
-}
-
-@(require_results)
-entity_set :: proc(entities: ^EntityList, entity_handle: EntityHandle, entity: Entity) -> bool {
-	if int(entity_handle.id) >= entities.list.len do return false
-	old_entity := xar.get_ptr(&entities.list, entity_handle.id)
-	if old_entity.generation != entity_handle.generation {
-		log.error("Wrong generation entity")
-		return false
-	}
-
-	xar.set(&entities.list, entity_handle.id, entity)
-	return true
+	return entity, true
 }
 
 @(instrumentation_enter)
@@ -286,16 +302,11 @@ spall_exit :: proc "contextless" (
 main :: proc() {
 	g_ctx = context
 	if g_cult_debug {
-		if !os.exists(LOG_PATH) {
-			_, err := os.create(LOG_PATH)
-			ensure(err == nil, "failed to create log file")
-		}
-
-		handle, err := old_os.open(LOG_PATH, old_os.O_RDWR, 0o666)
+		file, err := os.open(LOG_PATH, {.Read, .Write, .Create})
 		ensure(err == nil)
 
 		g_ctx.logger = log.create_multi_logger(
-			log.create_file_logger(handle),
+			log.create_file_logger(file),
 			log.create_console_logger(),
 		)
 
@@ -311,6 +322,10 @@ main :: proc() {
 
 	spall_buffer = spall.buffer_create(buffer_backing, u32(sync.current_thread_id()))
 	defer spall.buffer_destroy(&g_spall_ctx, &spall_buffer)
+
+	arena_err := vmem.arena_init_growing(&g_arena)
+	ensure(arena_err == nil)
+	context.allocator = vmem.arena_allocator(&g_arena)
 
 	@(static) ctx := CultCtx {
 		flags = {},
@@ -328,7 +343,7 @@ main :: proc() {
 		},
 	}
 
-	log.debug(MAX_ENTITY_SYNC_COUNT)
+	log.debug(MAX_ENTITY_SYNC_COUNT, size_of(EntitySyncData))
 
 	// Setup Engine
 	when ODIN_DEBUG {
@@ -343,9 +358,6 @@ main :: proc() {
 	rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), 30)
 	rl.SetTargetFPS(500)
 	defer rl.CloseWindow()
-	arena_err := vmem.arena_init_growing(&g_arena)
-	ensure(arena_err == nil)
-	context.allocator = vmem.arena_allocator(&g_arena)
 
 	monitor_id: i32
 	monitor_count := rl.GetMonitorCount()
@@ -369,8 +381,11 @@ main :: proc() {
 	elapsed_net_time: f32
 
 
-	when STEAM {
+	when PLATFORM == .STEAM {
 		steam.init(&ctx.steam)
+	}
+	defer when PLATFORM == .STEAM {
+		steam.deinit(&ctx.steam)
 	}
 
 	for !rl.WindowShouldClose() {
@@ -380,13 +395,13 @@ main :: proc() {
 
 		update_input(&ctx, LOGIC_TICK_RATE)
 
-		for elapsed_net_time >= NET_TICK_RATE {
-			elapsed_net_time -= NET_TICK_RATE
-			when STEAM {
+		when PLATFORM == .STEAM {
+			for elapsed_net_time >= NET_TICK_RATE {
+				elapsed_net_time -= NET_TICK_RATE
 				_ = steam.update_callback(&ctx.steam)
 				update_network_steam(&ctx)
-			}
 
+			}
 		}
 
 		for elapsed_logic_time >= LOGIC_TICK_RATE {
@@ -408,10 +423,8 @@ main :: proc() {
 	}
 
 	game_deinit(&ctx)
-	when STEAM {
-		steam.deinit(&ctx.steam)
-	}
 }
+
 
 update_network_steam :: proc(ctx: ^CultCtx) {
 	on_receive_msg :: proc(msg: ^steamworks.SteamNetworkingMessage, user_data: rawptr) {
@@ -421,7 +434,35 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 		switch header.type {
 		case .ServerSnapshot:
 			assert(.Server not_in ctx.flags)
+			data := (^NetworkServerSnapshot)(msg.pData)
+			assert(data.entity_count <= MAX_ENTITY_SYNC_COUNT)
+			for i in 0 ..< min(data.entity_count, MAX_ENTITY_SYNC_COUNT) {
+				entity_data := data.entities[i]
 
+				handle, exists := ctx.network_id_to_handle_client[entity_data.network_id]
+				if !exists {
+					if .Destroy in entity_data.flags do continue
+					new_handle := entity_add(&ctx.entities, Entity{net = entity_data})
+					ctx.network_id_to_handle_client[entity_data.network_id] = new_handle
+					continue
+				}
+
+				if .Destroy in entity_data.flags {
+					entity_delete(&ctx.entities, handle)
+					delete_key(&ctx.network_id_to_handle_client, entity_data.network_id)
+					continue
+				}
+
+				entity, ok := entity_get(&ctx.entities, handle)
+				if !ok {
+					delete_key(&ctx.network_id_to_handle_client, entity_data.network_id)
+					continue
+				}
+
+				entity.net = entity_data
+
+				continue
+			}
 
 		case .ClientInput:
 			assert(.Server in ctx.flags)
@@ -441,14 +482,18 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 			ctx.scene = .Loading
 		case .Created:
 			ctx.flags += {.Server}
-			game_init(ctx)
+			game_init(ctx, true)
 		case .ConnectedToHost:
-			game_init(ctx)
+			game_init(ctx, true)
 		case .PeerDisconnected:
+			peer_handle := ctx.players[PlayerID(event.id)].entity
+			peer_entity, _ := entity_get(&ctx.entities, peer_handle)
+			peer_entity.flags += {.Dead, .Destroy}
 		case .PeerConnected:
 			ctx.player_count += 1
+			entity := PLAYER_ENTITY
 			ctx.players[PlayerID(event.id)] = {
-				entity = entity_add(&ctx.entities, PLAYER_ENTITY),
+				entity = entity_add_sync_server(ctx, &entity),
 			}
 		case .DisconnectedFormHost:
 			game_deinit(ctx)
@@ -459,11 +504,14 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 	steam.process_received_msg(ctx.steam, on_receive_msg, ctx)
 
 	if .Server in ctx.flags {
-		iter := xar.iterator(&ctx.entities.list)
 		packet := NetworkServerSnapshot {
 			type = .ServerSnapshot,
 		}
-		for entity in xar.iterate_by_val(&iter) {
+		i := u64(0)
+
+		iter := xar.iterator(&ctx.entities.list)
+		for entity in xar.iterate_by_ptr(&iter) {
+			defer i += 1
 			if .Sync in entity.flags {
 				packet.entities[packet.entity_count] = entity
 				packet.entity_count += 1
@@ -471,10 +519,27 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 
 			if packet.entity_count == MAX_ENTITY_SYNC_COUNT {
 				steam.write(&ctx.steam, &packet, size_of(packet))
+				packet = NetworkServerSnapshot {
+					type = .ServerSnapshot,
+				}
+			}
+
+			if entity.flags >= {.Destroy, .Sync} {
+				entity.flags -= {.Destroy, .Sync}
+				entity_delete(&ctx.entities, EntityHandle{i, entity.generation})
 			}
 		}
-		if packet.entity_count >= 0 {
+
+		if packet.entity_count > 0 {
 			steam.write(&ctx.steam, &packet, size_of(packet))
+		}
+
+		iter = xar.iterator(&ctx.entities.list)
+		for entity in xar.iterate_by_ptr(&iter) {
+			if entity.flags >= {.Destroy, .Sync} {
+				entity.flags -= {.Destroy, .Sync}
+				entity_delete(&ctx.entities, EntityHandle{i, entity.generation})
+			}
 		}
 
 	}
@@ -483,6 +548,7 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 		player := ctx.players[ctx.player_id]
 		packet := NetworkClientInput {
 			type   = .ClientInput,
+			id     = ctx.player_id,
 			player = player.net,
 		}
 		steam.write(&ctx.steam, &packet, size_of(packet))
@@ -532,7 +598,7 @@ update_logic :: proc(ctx: ^CultCtx, delta_time: f32) {
 
 		if input.x != 0 || input.y != 0 {
 			dir := linalg.normalize(input)
-			entity := entity_get(&ctx.entities, player.entity)
+			entity, _ := entity_get(&ctx.entities, player.entity)
 			entity.pos += dir * entity.speed * delta_time
 		}
 		// }
@@ -567,7 +633,7 @@ update_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 			game_init(ctx)
 		}
 
-		when STEAM {
+		when PLATFORM == .STEAM {
 			btn_pos = get_ui_pos(ctx.render_size, 1)
 			if rl.GuiButton(rl.Rectangle{btn_pos.x, btn_pos.y, 200, 60}, "Host") {
 				steam.create_lobby(&ctx.steam)
@@ -606,7 +672,7 @@ update_game_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 
 	player, ok := ctx.players[ctx.player_id]
 	if ok {
-		entity := entity_get(&ctx.entities, player.entity)
+		entity, _ := entity_get(&ctx.entities, player.entity)
 		if entity != nil {
 			ctx.cameras[0].target = entity.pos + (entity.size / 2)
 		}
@@ -624,6 +690,7 @@ update_game_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 		i := 0
 		for entity in xar.iterate_by_ptr(&entity_iter) {
 			defer i += 1
+			if .Dead in entity.flags do continue
 			cstr := fmt.ctprintf("%v:%v", i, entity.generation)
 			rl.DrawTextPro(
 				default_font,
@@ -645,60 +712,53 @@ update_game_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 	}
 }
 
-game_init :: proc(ctx: ^CultCtx, allocator := context.allocator) {
+game_init :: proc(ctx: ^CultCtx, is_multiplayer := false, allocator := context.allocator) {
 	ctx.scene = .Game
-	ctx.max_player_count = ctx.steam.max_lobby_size
-	assert(ctx.steam.steam_id != 0)
-	log.debug(ctx.steam.steam_id)
-	ctx.player_id = PlayerID(ctx.steam.steam_id)
-	ctx.player_count = ctx.steam.lobby_size
-	assert(ctx.max_player_count != 0)
-	ctx.players = make(map[PlayerID]Player, ctx.max_player_count)
 
+	if is_multiplayer && PLATFORM == .STEAM {
+		assert(ctx.steam.steam_id != 0)
+		assert(ctx.steam.max_lobby_size > 0)
+		assert(ctx.steam.lobby_size > 0)
+		ctx.player_id = PlayerID(ctx.steam.steam_id)
+		ctx.max_player_count = ctx.steam.max_lobby_size
+		ctx.player_count = ctx.steam.lobby_size
+	} else if !is_multiplayer && PLATFORM == .STEAM {
+		ctx.player_id = PlayerID(ctx.steam.steam_id)
+		ctx.max_player_count = 1
+		ctx.player_count = 1
+	} else {
+		log.panic("Current Platform is not Supported")
+	}
+
+	ctx.players = make(map[PlayerID]Player, ctx.max_player_count, allocator)
 	log.warn("game init")
 
 	err := vmem.arena_init_growing(&ctx.entities.arena)
 	ensure(err == nil)
 	entities_alloc := vmem.arena_allocator(&ctx.entities.arena)
 	xar.init(&ctx.entities.list, entities_alloc)
-
 	if .Server in ctx.flags {
 		assert(ctx.player_id != 0)
 		assert(ctx.player_count == 1)
 		entity := PLAYER_ENTITY
 		entity.flags += {.Camera}
 		ctx.players[ctx.player_id] = {
-			entity = entity_add(&ctx.entities, entity),
+			entity = entity_add_sync_server(ctx, &entity),
 		}
-	} else { 	// TODO(Abdul): make it cleaner
-		assert(ctx.player_count > 1)
-		for i in 0 ..< ctx.player_count {
-			id := steamworks.Matchmaking_GetLobbyMemberByIndex(
-				ctx.steam.matchmaking,
-				ctx.steam.lobby_id,
-				i32(i),
-			)
-
-			assert(id != 0)
-
-			entity := PLAYER_ENTITY
-			if id == ctx.steam.steam_id {
-				entity.flags += {.Camera}
-			}
-
-			ctx.players[PlayerID(id)] = {
-				entity = entity_add(&ctx.entities, entity),
-			}
-
-		}
+	} else {
+		ctx.network_id_to_handle_client = make(map[EntityNetworkId]EntityHandle, 100, allocator)
 	}
+
 
 	log.debug(ctx.players)
 }
 
-game_deinit :: proc(ctx: ^CultCtx) {
+game_deinit :: proc(ctx: ^CultCtx, allocator := context.allocator) {
 	ctx.scene = .MainMenu
 	ctx.flags = {}
 	xar.destroy(&ctx.entities.list)
+	// delete(ctx.players)
+	// delete(ctx.network_id_to_handle_client)
+	free_all(allocator)
 	vmem.arena_destroy(&ctx.entities.arena)
 }

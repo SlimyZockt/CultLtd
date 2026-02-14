@@ -14,6 +14,8 @@ Test :: union {
 	},
 }
 
+ENTITY_ZERO: u32
+
 main :: proc() {
 	context.logger = log.create_console_logger()
 
@@ -26,10 +28,13 @@ main :: proc() {
 
 	a := mem.any_to_bytes(&b)
 
+
+	e := &ENTITY_ZERO
+
+	e^ = 32
+
 	log.debugf("%v", b)
 	log.debugf("%v", a)
-	c := cast(^Test)(&a)
-	log.debugf("%v", c)
 
 
 }
