@@ -162,8 +162,7 @@ g_arena: vmem.Arena
 g_spall_ctx: spall.Context
 
 PLAYER_ENTITY :: Entity {
-	flags = {.Controlabe, .Sync},
-	net = {speed = 500, size = {32, 64}},
+	net = {speed = 500, size = {32, 64}, flags = {.Controlabe, .Sync}},
 }
 
 @(thread_local)
@@ -227,6 +226,7 @@ rl_trace_to_log :: proc "c" (rl_level: rl.TraceLogLevel, message: cstring, args:
 }
 
 entity_add_sync_server :: proc(ctx: ^CultCtx, entity: ^Entity) -> EntityHandle {
+	log.debug(entity.flags)
 	assert(.Sync in entity.flags)
 	assert(.Server in ctx.flags)
 	entity.network_id = ctx.network_next_id_server
@@ -723,6 +723,7 @@ game_init :: proc(ctx: ^CultCtx, is_multiplayer := false, allocator := context.a
 		ctx.max_player_count = ctx.steam.max_lobby_size
 		ctx.player_count = ctx.steam.lobby_size
 	} else if !is_multiplayer && PLATFORM == .STEAM {
+		ctx.flags += {.Server}
 		ctx.player_id = PlayerID(ctx.steam.steam_id)
 		ctx.max_player_count = 1
 		ctx.player_count = 1
@@ -731,7 +732,6 @@ game_init :: proc(ctx: ^CultCtx, is_multiplayer := false, allocator := context.a
 	}
 
 	ctx.players = make(map[PlayerID]Player, ctx.max_player_count, allocator)
-	log.warn("game init")
 
 	err := vmem.arena_init_growing(&ctx.entities.arena)
 	ensure(err == nil)
@@ -742,6 +742,7 @@ game_init :: proc(ctx: ^CultCtx, is_multiplayer := false, allocator := context.a
 		assert(ctx.player_count == 1)
 		entity := PLAYER_ENTITY
 		entity.flags += {.Camera}
+		log.warn(entity)
 		ctx.players[ctx.player_id] = {
 			entity = entity_add_sync_server(ctx, &entity),
 		}
@@ -751,6 +752,7 @@ game_init :: proc(ctx: ^CultCtx, is_multiplayer := false, allocator := context.a
 
 
 	log.debug(ctx.players)
+	log.warn("Game was initilazes")
 }
 
 game_deinit :: proc(ctx: ^CultCtx, allocator := context.allocator) {
