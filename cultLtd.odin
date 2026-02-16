@@ -748,6 +748,7 @@ game_init :: proc(ctx: ^CultCtx, is_multiplayer := false, allocator := context.a
 		}
 	} else {
 		ctx.network_id_to_handle_client = make(map[EntityNetworkId]EntityHandle, 100, allocator)
+		ctx.players[ctx.player_id] = {}
 	}
 
 
