@@ -28,6 +28,15 @@ main :: proc() {
 
 	a := mem.any_to_bytes(&b)
 
+	j := 0
+	for i in 0 ..< 10 {
+		defer {
+			j += 1
+			log.debug(j)
+		}
+
+		if i == 5 do continue
+	}
 
 	e := &ENTITY_ZERO
 
