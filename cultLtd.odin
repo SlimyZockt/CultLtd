@@ -7,6 +7,7 @@ import "core:container/queue"
 import "core:container/xar"
 import "core:fmt"
 import "core:log"
+import "core:math"
 import "core:math/linalg"
 import vmem "core:mem/virtual"
 import os "core:os"
@@ -19,18 +20,14 @@ import ase "./aseprite"
 import steam "./steam/"
 import steamworks "./vendor/steamworks/"
 
-EntityNetworkFlagBits :: enum u32 {
+EntityFlagBits :: enum u32 {
 	Controlabe,
 	Sync,
-	Dead,
+	Alive,
 	Destroy,
+	Physics,
+	TTL,
 }
-EntityNetworkFlags :: bit_set[EntityNetworkFlagBits;u32]
-
-EntityFlagBits :: enum u32 {
-	Camera,
-}
-
 EntityFlags :: bit_set[EntityFlagBits;u32]
 
 TextureId :: distinct u64
@@ -42,19 +39,22 @@ EntityHandle :: struct {
 
 INVALID_PLAYER_ID :: PlayerId(0)
 EntitySyncData :: struct {
-	speed:      f32,
-	net_flags:  EntityNetworkFlags,
-	using pos:  [2]f32,
-	size:       [2]f32,
-	network_id: EntityNetworkId,
-	// owner_id:   PlayerId,
+	speed:          f32,
+	flags:          EntityFlags,
+	angle:          f32,
+	friction:       f32,
+	direction:      [2]f32,
+	using position: [2]f32,
+	velocity:       [2]f32,
+	size:           [2]f32,
+	network_id:     EntityNetworkId,
+	ttl:            Seconds,
 }
 
 Entity :: struct {
 	generation:        u64,
 	texture_id:        TextureId,
 	using net:         EntitySyncData,
-	flags:             EntityFlags,
 	NextFreeEntityIdx: Maybe(u64),
 }
 
@@ -72,7 +72,7 @@ CultCtxFlagBits :: enum u32 {
 
 CultCtxFlags :: bit_set[CultCtxFlagBits;u32]
 
-Actions :: enum u8 {
+Action :: enum u8 {
 	DebugCross,
 	Up,
 	Down,
@@ -80,6 +80,8 @@ Actions :: enum u8 {
 	Right,
 	Interact,
 	Quit,
+	PrimaryAction,
+	SecondaryAction,
 }
 
 Scenes :: enum u32 {
@@ -88,17 +90,23 @@ Scenes :: enum u32 {
 	Loading,
 }
 
-ActionToggles :: distinct bit_set[Actions;u32]
+ActionsDown :: bit_set[Action;u32]
+Seconds :: distinct f32
+ACTIONS_PRESSED_BUFFER_TIME :: Seconds(0.5)
+ActionsPressed :: [Action]Seconds
 PlayerId :: distinct u64
 
 PlayerSyncData :: struct {
-	input_down:    ActionToggles,
-	input_pressed: ActionToggles,
+	input_down:            ActionsDown,
+	input_pressed:         ActionsPressed,
+	screen_mouse_position: [2]f32,
 }
 
 Player :: struct {
-	using net: PlayerSyncData,
-	entity:    EntityHandle,
+	using network_shared_data: PlayerSyncData,
+	entity:                    EntityHandle,
+	input_pressed_queue:       queue.Queue(ActionsDown),
+	// ZZZ(Abdul)
 }
 
 RenderCtx :: struct {
@@ -106,6 +114,11 @@ RenderCtx :: struct {
 	render_size: [2]f32,
 	cameras:     []rl.Camera2D,
 	textures:    [dynamic]rl.Texture,
+}
+
+Inputs :: union #no_nil {
+	rl.KeyboardKey,
+	rl.MouseButton,
 }
 
 EntityNetworkId :: distinct u64
@@ -117,7 +130,7 @@ CultCtx :: struct {
 	network_next_id_server:      EntityNetworkId,
 	using render_ctx:            RenderCtx,
 	entities:                    EntityList,
-	keymap:                      [Actions]rl.KeyboardKey,
+	keymap:                      [Action]Inputs,
 	players:                     map[PlayerId]Player,
 	network_id_to_handle_client: map[EntityNetworkId]EntityHandle,
 	pending_player_assignment:   Maybe(EntityNetworkId),
@@ -176,7 +189,7 @@ g_arena: vmem.Arena
 g_spall_ctx: spall.Context
 
 PLAYER_ENTITY :: Entity {
-	net = {speed = 500, size = {32, 64}, net_flags = {.Controlabe, .Sync}},
+	net = {speed = 500, size = {32, 64}, flags = {.Controlabe, .Sync, .Alive}},
 }
 
 @(thread_local)
@@ -241,7 +254,7 @@ rl_trace_to_log :: proc "c" (rl_level: rl.TraceLogLevel, message: cstring, args:
 
 entity_add_sync_server :: proc(ctx: ^CultCtx, entity: Entity) -> EntityHandle {
 	entity := entity
-	assert(.Sync in entity.net_flags)
+	assert(.Sync in entity.flags)
 	assert(.Server in ctx.flags)
 	entity.network_id = ctx.network_next_id_server
 	ctx.network_next_id_server += 1
@@ -271,6 +284,18 @@ entity_add :: proc(entities: ^EntityList, entity: Entity) -> EntityHandle {
 	return EntityHandle{u64(idx), 0}
 }
 
+entity_delete_sync_server :: proc(entities: ^EntityList, entity_handle: EntityHandle) {
+	entity, ok := entity_get(entities, entity_handle)
+	assert(.Sync in entity.flags)
+	if !ok {
+		log.errorf("try to delete sync an not existing element %v", entity_handle)
+		return
+	}
+
+	entity.flags += {.Destroy}
+
+}
+
 entity_delete :: proc(entities: ^EntityList, entity_handle: EntityHandle) {
 	entity := xar.get_ptr(&entities.list, entity_handle.id)
 	if entity.generation != entity_handle.generation {
@@ -278,9 +303,14 @@ entity_delete :: proc(entities: ^EntityList, entity_handle: EntityHandle) {
 		return
 	}
 
-	entity.generation += 1
-	entity.NextFreeEntityIdx = entities.FreeEntityIdx
+	generation := entity.generation + 1
+	entity^ = {
+		generation        = generation,
+		NextFreeEntityIdx = entities.FreeEntityIdx,
+	}
 	entities.FreeEntityIdx = entity_handle.id
+
+	log.info("[Entity] deleted : %v", entity_handle)
 }
 
 
@@ -355,6 +385,8 @@ main :: proc() {
 			.Left = .A,
 			.Interact = .E,
 			.Quit = .F1,
+			.PrimaryAction = rl.MouseButton.LEFT,
+			.SecondaryAction = rl.MouseButton.RIGHT,
 		},
 	}
 
@@ -410,13 +442,20 @@ main :: proc() {
 		elapsed_net_time += delta_time
 
 		update_input(&ctx, LOGIC_TICK_RATE)
+		defer {
+			for _, &p in ctx.players {
+				for i in 0 ..< len(Action) {
+					i := Action(i)
+					p.input_pressed[i] = max(0, p.input_pressed[i] - Seconds(delta_time))
+				}
+			}
+		}
 
 		when PLATFORM == .STEAM {
 			for elapsed_net_time >= NET_TICK_RATE {
 				elapsed_net_time -= NET_TICK_RATE
 				_ = steam.update_callback(&ctx.steam)
 				update_network_steam(&ctx)
-
 			}
 		}
 
@@ -430,7 +469,7 @@ main :: proc() {
 			rl.ClearBackground(rl.WHITE)
 			defer rl.EndDrawing()
 
-			update_render(&ctx, delta_time)
+			draw(&ctx, delta_time)
 
 			rl.DrawFPS(0, 0)
 		}
@@ -457,7 +496,7 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 
 				handle, exists := ctx.network_id_to_handle_client[entity_data.network_id]
 				if !exists {
-					if .Destroy in entity_data.net_flags do continue
+					if .Destroy in entity_data.flags do continue
 					new_handle := entity_add(&ctx.entities, Entity{net = entity_data})
 					ctx.network_id_to_handle_client[entity_data.network_id] = new_handle
 
@@ -471,7 +510,7 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 					continue
 				}
 
-				if .Destroy in entity_data.net_flags {
+				if .Destroy in entity_data.flags {
 					entity_delete(&ctx.entities, handle)
 					delete_key(&ctx.network_id_to_handle_client, entity_data.network_id)
 					continue
@@ -493,7 +532,7 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 			data := (^NetworkClientInput)(msg.pData)
 			player, ok := ctx.players[data.id]
 			if !ok do return
-			player.net = data.player
+			player.network_shared_data = data.player
 			ctx.players[data.id] = player
 
 		case .PlayerAssignment:
@@ -526,7 +565,8 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 		case .PeerDisconnected:
 			peer_handle := ctx.players[PlayerId(event.id)].entity
 			peer_entity, _ := entity_get(&ctx.entities, peer_handle)
-			peer_entity.net_flags += {.Dead, .Destroy}
+			peer_entity.flags += {.Destroy}
+			peer_entity.flags -= {.Alive}
 		case .PeerConnected:
 			ctx.player_count += 1
 			entity := PLAYER_ENTITY
@@ -553,12 +593,10 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 		packet := NetworkServerSnapshot {
 			type = .ServerSnapshot,
 		}
-		i := u64(0)
-
 		iter := xar.iterator(&ctx.entities.list)
 		for entity in xar.iterate_by_ptr(&iter) {
-			defer i += 1
-			if .Sync in entity.net_flags {
+			i := u64(iter.idx) - 1
+			if .Sync in entity.flags {
 				packet.entities[packet.entity_count] = entity
 				packet.entity_count += 1
 			}
@@ -570,9 +608,9 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 				}
 			}
 
-			if entity.net_flags >= {.Destroy, .Sync} {
-				entity.net_flags -= {.Destroy, .Sync}
-				entity_delete(&ctx.entities, EntityHandle{i, entity.generation})
+			if entity.flags >= {.Destroy, .Sync} {
+				entity.flags -= {.Destroy, .Sync}
+				entity_delete(&ctx.entities, EntityHandle{u64(i), entity.generation})
 			}
 		}
 
@@ -586,27 +624,53 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 		packet := NetworkClientInput {
 			type   = .ClientInput,
 			id     = ctx.player_id,
-			player = player.net,
+			player = player.network_shared_data,
 		}
 		steam.write(&ctx.steam, &packet, size_of(packet))
 	}
 }
 
+is_input_down :: proc(keymap: [Action]Inputs, action: Action) -> bool {
+	switch k in keymap[action] {
+	case rl.KeyboardKey:
+		return rl.IsKeyDown(k)
+	case rl.MouseButton:
+		return rl.IsMouseButtonDown(k)
+	}
+
+	unreachable()
+}
+
+is_input_pressed :: proc(keymap: [Action]Inputs, action: Action) -> bool {
+	switch k in keymap[action] {
+	case rl.KeyboardKey:
+		return rl.IsKeyPressed(k)
+	case rl.MouseButton:
+		return rl.IsMouseButtonPressed(k)
+	}
+
+	unreachable()
+}
 
 update_input :: proc(ctx: ^CultCtx, delta_time: f32) {
 	if ctx.scene != .Game do return
-	input: ActionToggles
-
-	input = rl.IsKeyDown(ctx.keymap[.Up]) ? input + {.Up} : input - {.Up}
-	input = rl.IsKeyDown(ctx.keymap[.Down]) ? input + {.Down} : input - {.Down}
-	input = rl.IsKeyDown(ctx.keymap[.Left]) ? input + {.Left} : input - {.Left}
-	input = rl.IsKeyDown(ctx.keymap[.Right]) ? input + {.Right} : input - {.Right}
-
 	player := ctx.players[ctx.player_id]
-	player.input_down = input
+	input_down := &player.input_down
+	input_pressed := &player.input_pressed
+
+	for i in 0 ..< len(Action) {
+		i := Action(i)
+		input_down^ = input_down^ + {i} if is_input_down(ctx.keymap, i) else input_down^ - {i}
+		if is_input_pressed(ctx.keymap, i) {
+			input_pressed[i] = ACTIONS_PRESSED_BUFFER_TIME
+		}
+	}
+
+	player.screen_mouse_position = rl.GetMousePosition()
+
 	ctx.players[ctx.player_id] = player
 
-	if rl.IsKeyPressed(ctx.keymap[.DebugCross]) {
+	if is_input_pressed(ctx.keymap, .DebugCross) {
 		if .DebugCross in ctx.flags {
 			ctx.flags -= {.DebugCross}
 		} else {
@@ -614,17 +678,20 @@ update_input :: proc(ctx: ^CultCtx, delta_time: f32) {
 		}
 	}
 
-	if rl.IsKeyPressed(ctx.keymap[.Quit]) {
+	if is_input_pressed(ctx.keymap, .Quit) {
 		game_deinit(ctx)
 		steam.disconnect(&ctx.steam)
 	}
+	// input_pressed^ =
+	// 	input_pressed^ + {i} if is_input_pressed(ctx.keymap, i) else input_pressed^ - {i}
+
 }
 
 update_logic :: proc(ctx: ^CultCtx, delta_time: f32) {
 	if ctx.scene != .Game do return
 	if .Server not_in ctx.flags do return
 
-	for _, player in ctx.players {
+	for _, &player in ctx.players {
 		input: [2]f32
 
 		input_down := player.input_down
@@ -636,12 +703,62 @@ update_logic :: proc(ctx: ^CultCtx, delta_time: f32) {
 		if input.x != 0 || input.y != 0 {
 			dir := linalg.normalize(input)
 			entity, _ := entity_get(&ctx.entities, player.entity)
-			entity.pos += dir * entity.speed * delta_time
+			entity.position += dir * entity.speed * delta_time
+		}
+
+		if player.input_pressed[.PrimaryAction] > 0 { 	// Shooting
+			defer player.input_pressed[.PrimaryAction] = 0
+			entity, _ := entity_get(&ctx.entities, player.entity)
+			mouse_world := rl.GetScreenToWorld2D(player.screen_mouse_position, ctx.cameras[0])
+			diff := mouse_world - entity.position
+			angle := math.atan2(diff.y, diff.x)
+			direction := [2]f32{math.cos(angle), math.sin(angle)}
+			entity_add_sync_server(
+				ctx,
+				Entity {
+					size = {16, 16},
+					speed = 300,
+					position = entity.position,
+					velocity = direction * 300,
+					friction = 100,
+					angle = angle,
+					ttl = 1,
+					direction = direction,
+					flags = {.Sync, .Physics, .Alive, .TTL},
+				},
+			)
+		}
+	}
+
+
+	entity_iter := xar.iterator(&ctx.entities.list)
+	for entity in xar.iterate_by_ptr(&entity_iter) {
+		i := u64(entity_iter.idx) - 1
+		if .Physics in entity.flags {
+			if entity.velocity != {0, 0} {
+				entity.position += entity.velocity * delta_time
+
+				speed := linalg.length(entity.velocity)
+				new_speed := max(f32(0), speed - entity.friction * delta_time)
+				if new_speed == 0 {
+					entity.velocity = [2]f32{0, 0}
+				} else {
+					entity.velocity = linalg.normalize(entity.velocity) * new_speed
+				}
+			}
+		}
+
+		if .TTL in entity.flags {
+			if entity.ttl <= 0 {
+				entity_delete_sync_server(&ctx.entities, EntityHandle{i, entity.generation})
+			} else {
+				entity.ttl -= Seconds(delta_time)
+			}
 		}
 	}
 }
 
-update_render :: proc(ctx: ^CultCtx, delta_time: f32) {
+draw :: proc(ctx: ^CultCtx, delta_time: f32) {
 	switch ctx.scene {
 	case .Loading:
 		default_font := rl.GetFontDefault()
@@ -657,7 +774,7 @@ update_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 		)
 
 	case .Game:
-		update_game_render(ctx, delta_time)
+		draw_game(ctx, delta_time)
 	case .MainMenu:
 		get_ui_pos :: proc(render_size: [2]f32, i: f32) -> [2]f32 {
 			return {(render_size.x / 2) - 100, (render_size.y / 4) + i * 70}
@@ -697,16 +814,12 @@ update_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 
 }
 
-update_game_render :: proc(ctx: ^CultCtx, delta_time: f32) {
-	{ 	// Render UI
-
-	}
-
+draw_game :: proc(ctx: ^CultCtx, delta_time: f32) {
 	player, ok := ctx.players[ctx.player_id]
 	if ok {
 		entity, _ := entity_get(&ctx.entities, player.entity)
-		if entity != nil && .Dead not_in entity.net_flags {
-			ctx.cameras[0].target = entity.pos + (entity.size / 2)
+		if entity != nil && .Alive in entity.flags {
+			ctx.cameras[0].target = entity.position + (entity.size / 2)
 		}
 	}
 
@@ -718,15 +831,14 @@ update_game_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 		rl.DrawRectangle(0, 0, 64, 64, rl.GRAY)
 
 		entity_iter := xar.iterator(&ctx.entities.list)
-		i := 0
 		for entity in xar.iterate_by_ptr(&entity_iter) {
-			defer i += 1
-			if .Dead in entity.net_flags do continue
+			i := u64(entity_iter.idx) - 1
+			if .Alive not_in entity.flags do continue
 			cstr := fmt.ctprintf("%v:%v", i, entity.generation)
 			rl.DrawTextPro(
 				default_font,
 				cstr,
-				[2]f32{entity.pos.x, entity.pos.y - entity.size.y},
+				[2]f32{entity.position.x, entity.position.y - entity.size.y},
 				[2]f32{},
 				0,
 				32,
@@ -734,12 +846,17 @@ update_game_render :: proc(ctx: ^CultCtx, delta_time: f32) {
 				rl.BLACK,
 			)
 			rl.DrawRectanglePro(
-				rl.Rectangle{entity.pos.x, entity.pos.y, entity.size.x, entity.size.y},
+				rl.Rectangle{entity.position.x, entity.position.y, entity.size.x, entity.size.y},
 				[2]f32{},
 				0,
 				rl.RED,
 			)
 		}
+	}
+
+
+	{ 	// draw UI
+		rl.DrawRectangle(0, 0, i32(ctx.render_size.x / 2), i32(ctx.render_size.y / 10), rl.GRAY)
 	}
 }
 
@@ -772,7 +889,6 @@ game_init :: proc(ctx: ^CultCtx, is_multiplayer := false, allocator := context.a
 		assert(ctx.player_id != 0)
 		assert(ctx.player_count == 1)
 		entity := PLAYER_ENTITY
-		entity.flags += {.Camera}
 		ctx.players[ctx.player_id] = {
 			entity = entity_add_sync_server(ctx, entity),
 		}
