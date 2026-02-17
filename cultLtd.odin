@@ -93,13 +93,14 @@ Scenes :: enum u32 {
 ActionsDown :: bit_set[Action;u32]
 Seconds :: distinct f32
 ACTIONS_PRESSED_BUFFER_TIME :: Seconds(0.5)
-ActionsPressed :: [Action]Seconds
+ActionsPressed :: bit_set[Action;u32]
 PlayerId :: distinct u64
 
 PlayerSyncData :: struct {
 	input_down:            ActionsDown,
 	input_pressed:         ActionsPressed,
-	screen_mouse_position: [2]f32,
+	mouse_position_screen: [2]f32,
+	mouse_position_world:  [2]f32,
 }
 
 Player :: struct {
@@ -293,7 +294,6 @@ entity_delete_sync_server :: proc(entities: ^EntityList, entity_handle: EntityHa
 	}
 
 	entity.flags += {.Destroy}
-
 }
 
 entity_delete :: proc(entities: ^EntityList, entity_handle: EntityHandle) {
@@ -442,14 +442,14 @@ main :: proc() {
 		elapsed_net_time += delta_time
 
 		update_input(&ctx, LOGIC_TICK_RATE)
-		defer {
-			for _, &p in ctx.players {
-				for i in 0 ..< len(Action) {
-					i := Action(i)
-					p.input_pressed[i] = max(0, p.input_pressed[i] - Seconds(delta_time))
-				}
-			}
-		}
+		// defer {
+		// 	for _, &p in ctx.players {
+		// 		for i in 0 ..< len(Action) {
+		// 			i := Action(i)
+		// 			p.input_pressed[i] = max(0, p.input_pressed[i] - Seconds(delta_time))
+		// 		}
+		// 	}
+		// }
 
 		when PLATFORM == .STEAM {
 			for elapsed_net_time >= NET_TICK_RATE {
@@ -627,6 +627,9 @@ update_network_steam :: proc(ctx: ^CultCtx) {
 			player = player.network_shared_data,
 		}
 		steam.write(&ctx.steam, &packet, size_of(packet))
+
+		player.input_pressed = {}
+		ctx.players[ctx.player_id] = player
 	}
 }
 
@@ -662,11 +665,16 @@ update_input :: proc(ctx: ^CultCtx, delta_time: f32) {
 		i := Action(i)
 		input_down^ = input_down^ + {i} if is_input_down(ctx.keymap, i) else input_down^ - {i}
 		if is_input_pressed(ctx.keymap, i) {
-			input_pressed[i] = ACTIONS_PRESSED_BUFFER_TIME
+			// input_pressed[i] = ACTIONS_PRESSED_BUFFER_TIME
+			input_pressed^ += {i}
 		}
 	}
 
-	player.screen_mouse_position = rl.GetMousePosition()
+	player.mouse_position_screen = rl.GetMousePosition()
+	player.mouse_position_world = rl.GetScreenToWorld2D(
+		player.mouse_position_screen,
+		ctx.cameras[0],
+	)
 
 	ctx.players[ctx.player_id] = player
 
@@ -706,11 +714,10 @@ update_logic :: proc(ctx: ^CultCtx, delta_time: f32) {
 			entity.position += dir * entity.speed * delta_time
 		}
 
-		if player.input_pressed[.PrimaryAction] > 0 { 	// Shooting
-			defer player.input_pressed[.PrimaryAction] = 0
+		if .PrimaryAction in player.input_pressed { 	// Shooting
+			defer player.input_pressed -= {.PrimaryAction}
 			entity, _ := entity_get(&ctx.entities, player.entity)
-			mouse_world := rl.GetScreenToWorld2D(player.screen_mouse_position, ctx.cameras[0])
-			diff := mouse_world - entity.position
+			diff := player.mouse_position_world - entity.position
 			angle := math.atan2(diff.y, diff.x)
 			direction := [2]f32{math.cos(angle), math.sin(angle)}
 			entity_add_sync_server(
