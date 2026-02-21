@@ -2,8 +2,6 @@ package steam
 
 import "core:log"
 import "core:mem"
-import "core:net"
-
 
 Test :: union {
 	struct {
