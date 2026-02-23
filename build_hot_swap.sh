@@ -95,6 +95,8 @@ if [ "$MODE" = "run" ]; then
     ./$EXE &
 fi
 
+trap "pkill -P $$ || true" EXIT
+
 if [ "$MODE" = "watch" ]; then
     echo "Running $EXE"
     ./$EXE &

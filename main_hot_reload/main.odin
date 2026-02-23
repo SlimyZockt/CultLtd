@@ -171,7 +171,9 @@ main :: proc() {
 					// probably lead to a crash anyways.
 
 					game_api.shutdown()
-					reset_tracking_allocator(&tracking_allocator)
+					err := reset_tracking_allocator(&tracking_allocator)
+					assert(err == false)
+					log.debug("force restart")
 
 					for &g in old_game_apis {
 						unload_game_api(&g)

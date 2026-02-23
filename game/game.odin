@@ -270,11 +270,12 @@ rl_trace_to_log :: proc "c" (rl_level: rl.TraceLogLevel, message: cstring, args:
 		return
 	}
 
+
 	temp := vmem.arena_temp_begin(&g_arena)
 	defer vmem.arena_temp_end(temp)
 
-	arena_alloc := vmem.arena_allocator(&g_arena)
-	buf := make([]byte, 4096, arena_alloc)
+	allocator := vmem.arena_allocator(temp.arena)
+	buf := make([]byte, 4096, allocator)
 	log_len := stbsp.vsnprintf(raw_data(buf), i32(len(buf)), message, args)
 
 	if log_len < 0 {
@@ -325,13 +326,14 @@ game_init_window :: proc() {
 	}
 
 	rl.SetTraceLogLevel(.ALL)
-	rl.SetTraceLogCallback(rl_trace_to_log)
 	rl.InitWindow(0, 0, "CultLtd.")
 	rl.SetTargetFPS(500)
+	rl.SetExitKey(nil)
 }
 
 @(export)
 game_init :: proc() {
+	rl.SetTraceLogCallback(rl_trace_to_log)
 	rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), 30)
 	arena_err := vmem.arena_init_growing(&g_arena)
 	ensure(arena_err == nil)
@@ -344,6 +346,8 @@ game_init :: proc() {
 
 		spall_buffer = spall.buffer_create(g_buffer_backing, u32(sync.current_thread_id()))
 	}
+
+	g_ctx = context
 
 	if g_cult_debug {
 		file, err := os.open(LOG_PATH, {.Read, .Write, .Create, .Trunc})
@@ -361,6 +365,7 @@ game_init :: proc() {
 	}
 
 	context = g_ctx
+
 	g_game_ctx = GameCtx {
 		flags = {},
 		scene = .MainMenu,
@@ -452,6 +457,7 @@ game_should_run :: proc() -> bool {
 
 @(export)
 game_shutdown :: proc() {
+	rl.SetTraceLogCallback(nil)
 	{ 	// Profiler
 		spall.buffer_destroy(&g_spall_ctx, &spall_buffer)
 		spall.context_destroy(&g_spall_ctx)
@@ -459,7 +465,10 @@ game_shutdown :: proc() {
 	when PLATFORM == .STEAM {
 		steam.deinit(&g_game_ctx.steam)
 	}
+
+	g_game_ctx = {}
 	vmem.arena_destroy(&g_arena)
+	// free_all(context.allocator)
 }
 
 @(export)
@@ -480,6 +489,8 @@ game_memory_size :: proc() -> int {
 @(export)
 game_hot_reloaded :: proc(memory: rawptr) {
 	g_game_ctx = (^GameCtx)(memory)^
+
+	rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), 30)
 }
 
 @(export)
@@ -546,9 +557,7 @@ game_enter :: proc(ctx: ^GameCtx, allocator: runtime.Allocator, is_multiplayer :
 				i := int(chunk_x + (chunk_y * CHUNK_SIZE))
 				level := noise.noise_2d(ctx.seed, world_pos + chunk_pos)
 				assert(level >= -1 && level <= 1)
-
 				ctx.chunked_world[i].pos = world_pos + chunk_pos
-				log.debug(level)
 				switch level {
 				case -1 ..< 0:
 					ctx.chunked_world[i].biome = .OCEAN
