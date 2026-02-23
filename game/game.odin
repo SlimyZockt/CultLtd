@@ -1,21 +1,26 @@
 // Sacrifice other world beings to grow your factory
 package game
 
+import "base:intrinsics"
 import "base:runtime"
 import "core:c"
 import "core:container/queue"
 import "core:container/xar"
 import "core:log"
+import "core:math/bits"
+import "core:math/linalg"
+import "core:math/noise"
+import "core:math/rand"
 import vmem "core:mem/virtual"
 import os "core:os"
 import "core:prof/spall"
 import "core:sync"
+import "core:time"
 import rl "vendor:raylib"
 import stbsp "vendor:stb/sprintf"
 
 import ase "../aseprite"
 import "../steam"
-
 
 EntityFlagBits :: enum u32 {
 	Controlabe,
@@ -25,6 +30,7 @@ EntityFlagBits :: enum u32 {
 	Physics,
 	TTL,
 }
+
 EntityFlags :: bit_set[EntityFlagBits;u32]
 
 TextureId :: distinct u64
@@ -107,11 +113,37 @@ Player :: struct {
 	// ZZZ(Abdul)
 }
 
+
+TILE_SIZE :: 32
+CHUNK_SIZE :: 100
+
+WorldTileFlagBits :: enum u32 {
+	Infested,
+}
+WorldTileFlags :: bit_set[WorldTileFlagBits;u32]
+
+Biome :: enum u32 {
+	OCEAN,
+	PLAINS,
+	DESSERT,
+	SNOW,
+	FORREST,
+	SPECIAL,
+}
+
+WorldTile :: struct {
+	flags:     WorldTileFlags,
+	biome:     Biome,
+	layers:    [2]TextureId,
+	using pos: [2]f64,
+}
+
 RenderCtx :: struct {
-	scene:       Scenes,
-	render_size: [2]f32,
-	camera:      rl.Camera2D,
-	textures:    [dynamic]rl.Texture,
+	scene:         Scenes,
+	render_size:   [2]f32,
+	camera:        rl.Camera2D,
+	textures:      [dynamic]rl.Texture2D,
+	chunked_world: [CHUNK_SIZE * CHUNK_SIZE]WorldTile,
 }
 
 Inputs :: union #no_nil {
@@ -120,11 +152,18 @@ Inputs :: union #no_nil {
 }
 
 EntityNetworkId :: distinct u64
-CultCtx :: struct {
+
+WORLD_WIDTH :: u32(10_000)
+WORLD_HEIGHT :: u32(10_000)
+WORLD_TILE_COUNT :: WORLD_WIDTH * WORLD_HEIGHT
+#assert(WORLD_TILE_COUNT < bits.U32_MAX)
+
+GameCtx :: struct {
 	player_count:                u16,
 	max_player_count:            u16,
 	elapsed_logic_time:          f32,
 	elapsed_net_time:            f32,
+	seed:                        i64,
 	flags:                       CultCtxFlags,
 	player_id:                   PlayerId,
 	network_next_id_server:      EntityNetworkId,
@@ -274,14 +313,13 @@ spall_exit :: proc "contextless" (
 }
 
 g_buffer_backing: []u8
-g_game_ctx: CultCtx
+g_game_ctx: GameCtx
 
 @(export)
-game_init_engine :: proc() {
+game_init_window :: proc() {
 	g_ctx = context
-	// Setup Engine
 	when ODIN_DEBUG {
-		rl.SetConfigFlags({.BORDERLESS_WINDOWED_MODE})
+		rl.SetConfigFlags({.BORDERLESS_WINDOWED_MODE, .WINDOW_UNDECORATED})
 	} else {
 		rl.SetConfigFlags({.FULLSCREEN_MODE, .BORDERLESS_WINDOWED_MODE})
 	}
@@ -289,38 +327,41 @@ game_init_engine :: proc() {
 	rl.SetTraceLogLevel(.ALL)
 	rl.SetTraceLogCallback(rl_trace_to_log)
 	rl.InitWindow(0, 0, "CultLtd.")
-	rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), 30)
 	rl.SetTargetFPS(500)
 }
 
 @(export)
 game_init :: proc() {
+	rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), 30)
+	arena_err := vmem.arena_init_growing(&g_arena)
+	ensure(arena_err == nil)
+	allocator := vmem.arena_allocator(&g_arena)
+
 	{ 	// Profiler
 		g_spall_ctx = spall.context_create("trace.spall")
 
-		g_buffer_backing = make([]u8, spall.BUFFER_DEFAULT_SIZE)
+		g_buffer_backing = make([]u8, spall.BUFFER_DEFAULT_SIZE, allocator)
 
 		spall_buffer = spall.buffer_create(g_buffer_backing, u32(sync.current_thread_id()))
 	}
 
-	arena_err := vmem.arena_init_growing(&g_arena)
-	ensure(arena_err == nil)
-	// allocator := vmem.arena_allocator(&g_arena)
-
 	if g_cult_debug {
-		file, err := os.open(LOG_PATH, {.Read, .Write, .Create})
+		file, err := os.open(LOG_PATH, {.Read, .Write, .Create, .Trunc})
 		ensure(err == nil)
 
 		g_ctx.logger = log.create_multi_logger(
-			log.create_file_logger(file),
-			log.create_console_logger(),
+			log.create_file_logger(file, allocator = allocator),
+			log.create_console_logger(allocator = allocator),
+			allocator = allocator,
 		)
 
-		ase.genereate_png_from_ase("aseprite", "./assets/")
+		temp := vmem.arena_temp_begin(&g_arena)
+		ase.genereate_png_from_ase("aseprite", "./assets/", allocator)
+		vmem.arena_temp_end(temp)
 	}
 
 	context = g_ctx
-	g_game_ctx = CultCtx {
+	g_game_ctx = GameCtx {
 		flags = {},
 		scene = .MainMenu,
 		player_count = 1,
@@ -339,6 +380,9 @@ game_init :: proc() {
 		},
 	}
 
+	{ 	//TODO(abdul): init Texture
+		// g_game_ctx.textures = make([dynamic]rl.Texture2D, 0, 100, allocator)
+	}
 
 	monitor_id: i32
 	monitor_count := rl.GetMonitorCount()
@@ -350,6 +394,7 @@ game_init :: proc() {
 			g_game_ctx.render_size.y = new_height
 		}
 	}
+
 	g_game_ctx.render_size.x = f32(rl.GetMonitorWidth(monitor_id))
 	g_game_ctx.render_size /= f32(2)
 	rl.SetWindowSize(i32(g_game_ctx.render_size.x), i32(g_game_ctx.render_size.y))
@@ -408,9 +453,8 @@ game_should_run :: proc() -> bool {
 @(export)
 game_shutdown :: proc() {
 	{ 	// Profiler
-		spall.context_destroy(&g_spall_ctx)
-		delete(g_buffer_backing)
 		spall.buffer_destroy(&g_spall_ctx, &spall_buffer)
+		spall.context_destroy(&g_spall_ctx)
 	}
 	when PLATFORM == .STEAM {
 		steam.deinit(&g_game_ctx.steam)
@@ -419,7 +463,7 @@ game_shutdown :: proc() {
 }
 
 @(export)
-game_shutdown_engine :: proc() {
+game_shutdown_window :: proc() {
 	rl.CloseWindow()
 }
 
@@ -430,12 +474,12 @@ game_memory :: proc() -> rawptr {
 
 @(export)
 game_memory_size :: proc() -> int {
-	return size_of(CultCtx)
+	return size_of(GameCtx)
 }
 
 @(export)
 game_hot_reloaded :: proc(memory: rawptr) {
-	g_game_ctx = (^CultCtx)(memory)^
+	g_game_ctx = (^GameCtx)(memory)^
 }
 
 @(export)
@@ -448,7 +492,7 @@ game_force_restart :: proc() -> bool {
 	return rl.IsKeyPressed(.F6)
 }
 
-game_enter :: proc(ctx: ^CultCtx, allocator: runtime.Allocator, is_multiplayer := false) {
+game_enter :: proc(ctx: ^GameCtx, allocator: runtime.Allocator, is_multiplayer := false) {
 	ctx.scene = .Game
 
 	if is_multiplayer && PLATFORM == .STEAM {
@@ -487,16 +531,46 @@ game_enter :: proc(ctx: ^CultCtx, allocator: runtime.Allocator, is_multiplayer :
 		ctx.network_id_to_handle_client = make(map[EntityNetworkId]EntityHandle, 100, allocator)
 	}
 
+	ctx.seed = time.tick_now()._nsec
+	rand.reset(u64(ctx.seed))
+
+	{ 	// generate world
+		player := ctx.players[ctx.player_id]
+		player_entity, _ := entity_get(&ctx.entities, player.entity)
+		t := linalg.round(player_entity.position)
+		world_pos := [2]f64{f64(t.x), f64(t.y)}
+
+		for chunk_x in 0 ..< f64(CHUNK_SIZE) {
+			for chunk_y in 0 ..< f64(CHUNK_SIZE) {
+				chunk_pos := [2]f64{chunk_x, chunk_y}
+				i := int(chunk_x + (chunk_y * CHUNK_SIZE))
+				level := noise.noise_2d(ctx.seed, world_pos + chunk_pos)
+				assert(level >= -1 && level <= 1)
+
+				ctx.chunked_world[i].pos = world_pos + chunk_pos
+				log.debug(level)
+				switch level {
+				case -1 ..< 0:
+					ctx.chunked_world[i].biome = .OCEAN
+				case 0 ..< 0.5:
+					ctx.chunked_world[i].biome = .PLAINS
+				case 0.5 ..< 1:
+					ctx.chunked_world[i].biome = .SNOW
+				// case
+				}
+			}
+		}
+
+
+	}
 
 	log.warn("Game was initilazes")
 }
 
-game_exit :: proc(ctx: ^CultCtx, allocator := context.allocator) {
+game_exit :: proc(ctx: ^GameCtx, allocator := context.allocator) {
 	ctx.scene = .MainMenu
 	ctx.flags = {}
 	xar.destroy(&ctx.entities.list)
-	// delete(ctx.players)
-	// delete(ctx.network_id_to_handle_client)
-	free_all(allocator)
+	vmem.arena_destroy(&g_arena)
 	vmem.arena_destroy(&ctx.entities.arena)
 }

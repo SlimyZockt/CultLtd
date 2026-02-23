@@ -25,7 +25,7 @@ is_input_pressed :: proc(keymap: [Action]Inputs, action: Action) -> bool {
 	unreachable()
 }
 
-update_input :: proc(ctx: ^CultCtx, delta_time: f32) {
+update_input :: proc(ctx: ^GameCtx, delta_time: f32) {
 	if ctx.scene != .Game do return
 	player := ctx.players[ctx.player_id]
 	input_down := &player.input_down

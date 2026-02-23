@@ -8,7 +8,7 @@ import rl "vendor:raylib"
 
 import "../steam"
 
-draw :: proc(ctx: ^CultCtx, delta_time: f32) {
+draw :: proc(ctx: ^GameCtx, delta_time: f32) {
 	switch ctx.scene {
 	case .Loading:
 		default_font := rl.GetFontDefault()
@@ -65,7 +65,7 @@ draw :: proc(ctx: ^CultCtx, delta_time: f32) {
 
 }
 
-draw_game :: proc(ctx: ^CultCtx, delta_time: f32) {
+draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 	player, ok := ctx.players[ctx.player_id]
 	if ok {
 		entity, _ := entity_get(&ctx.entities, player.entity)
@@ -78,6 +78,42 @@ draw_game :: proc(ctx: ^CultCtx, delta_time: f32) {
 		rl.BeginMode2D(ctx.camera)
 		defer rl.EndMode2D()
 		default_font := rl.GetFontDefault()
+
+
+		for chunk_x in 0 ..< CHUNK_SIZE {
+			for chunk_y in 0 ..< CHUNK_SIZE {
+				i := chunk_x + (chunk_y * CHUNK_SIZE)
+
+				chunk_pos := ctx.chunked_world[i].pos * TILE_SIZE
+				switch ctx.chunked_world[i].biome {
+				case .OCEAN:
+					rl.DrawRectangle(
+						i32(chunk_pos.x),
+						i32(chunk_pos.y),
+						TILE_SIZE,
+						TILE_SIZE,
+						rl.BLUE,
+					)
+				case .PLAINS:
+					rl.DrawRectangle(
+						i32(chunk_pos.x),
+						i32(chunk_pos.y),
+						TILE_SIZE,
+						TILE_SIZE,
+						rl.GREEN,
+					)
+				case .SNOW:
+					rl.DrawRectangle(
+						i32(chunk_pos.x),
+						i32(chunk_pos.y),
+						TILE_SIZE,
+						TILE_SIZE,
+						rl.LIGHTGRAY,
+					)
+				case .DESSERT, .FORREST, .SPECIAL:
+				}
+			}
+		}
 
 		rl.DrawRectangle(0, 0, 64, 64, rl.GRAY)
 
@@ -97,15 +133,22 @@ draw_game :: proc(ctx: ^CultCtx, delta_time: f32) {
 				1,
 				rl.BLACK,
 			)
-			rl.DrawRectanglePro(
-				rl.Rectangle{entity.position.x, entity.position.y, entity.size.x, entity.size.y},
-				[2]f32{},
-				0,
-				rl.Color{0xFF, 0x0, 0x0, 0xA0},
-			)
+			if entity.texture_id == 0 {
+				GHOST_COLOR :: rl.Color{0x93, 0x8a, 0xa9, 0xA0}
+				rl.DrawRectanglePro(
+					rl.Rectangle {
+						entity.position.x,
+						entity.position.y,
+						entity.size.x,
+						entity.size.y,
+					},
+					[2]f32{},
+					0,
+					GHOST_COLOR,
+				)
+			}
 		}
 	}
-
 
 	{ 	// draw UI
 		rl.DrawRectangle(0, 0, i32(ctx.render_size.x / 2), i32(ctx.render_size.y / 10), rl.GRAY)

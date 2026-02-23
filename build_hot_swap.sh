@@ -107,5 +107,4 @@ if [ "$MODE" = "watch" ]; then
             echo "Build failed. Keeping previous hot-reload DLL; watching for next change..."
         fi
     done
-
 fi

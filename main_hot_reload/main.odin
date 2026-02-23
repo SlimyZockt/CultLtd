@@ -35,12 +35,12 @@ copy_dll :: proc(to: string) -> bool {
 
 Game_API :: struct {
 	lib:               dynlib.Library,
-	init_engine:       proc(),
+	init_window:       proc(),
 	init:              proc(),
 	update:            proc(),
 	should_run:        proc() -> bool,
 	shutdown:          proc(),
-	shutdown_engine:   proc(),
+	shutdown_window:   proc(),
 	memory:            proc() -> rawptr,
 	memory_size:       proc() -> int,
 	hot_reloaded:      proc(mem: rawptr),
@@ -128,7 +128,7 @@ main :: proc() {
 	}
 
 	game_api_version += 1
-	game_api.init_engine()
+	game_api.init_window()
 	game_api.init()
 
 	old_game_apis := make([dynamic]Game_API, default_allocator)
@@ -215,7 +215,7 @@ main :: proc() {
 
 	delete(old_game_apis)
 
-	game_api.shutdown_engine()
+	game_api.shutdown_window()
 	unload_game_api(&game_api)
 	mem.tracking_allocator_destroy(&tracking_allocator)
 }

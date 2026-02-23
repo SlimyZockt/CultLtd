@@ -1,5 +1,6 @@
 package aseprite
 
+import "base:runtime"
 import "core:log"
 import os "core:os"
 import fp "core:path/filepath"
@@ -11,10 +12,11 @@ ASSETS_PATH :: "./assets/"
 
 main :: proc() {
 	context.logger = log.create_console_logger()
-	genereate_png_from_ase(ASEPRITE_PATH, ASSETS_PATH)
+	genereate_png_from_ase(ASEPRITE_PATH, ASSETS_PATH, context.allocator)
 }
 
-genereate_png_from_ase :: proc(aseprite_path, assets_path: string) {
+genereate_png_from_ase :: proc(aseprite_path, assets_path: string, allocator: runtime.Allocator) {
+	context.allocator = allocator
 	w := os.walker_create(assets_path)
 
 	for fi in os.walker_walk(&w) {
@@ -25,18 +27,20 @@ genereate_png_from_ase :: proc(aseprite_path, assets_path: string) {
 
 
 		pd: os.Process_Desc
+		target_path := strings.join(
+			{pd.working_dir, "/", fp.short_stem(fi.name), ".png"},
+			"",
+			allocator,
+		)
+		defer delete(target_path)
+
 		pd.working_dir = fp.dir(fi.fullpath)
-		pd.command = {
-			aseprite_path,
-			"-b",
-			fi.fullpath,
-			"--sheet",
-			strings.join({pd.working_dir, "/", fp.short_stem(fi.name), ".png"}, ""),
-		}
+		pd.command = {aseprite_path, "-b", fi.fullpath, "--sheet", target_path}
 
-		state, stdout, stdin, err := os.process_exec(pd, context.allocator)
+		_, stdout, stderr, err := os.process_exec(pd, allocator)
+		assert(err == nil)
+		log.debug(stdout, stderr)
 		delete(stdout)
-		delete(stdin)
+		delete(stderr)
 	}
-
 }

@@ -7,9 +7,9 @@ import "core:container/xar"
 import "core:log"
 import vmem "core:mem/virtual"
 
-update_network_steam :: proc(ctx: ^CultCtx) {
+update_network_steam :: proc(ctx: ^GameCtx) {
 	on_receive_msg :: proc(msg: ^steamworks.SteamNetworkingMessage, user_data: rawptr) {
-		ctx := (^CultCtx)(user_data)
+		ctx := (^GameCtx)(user_data)
 		header := (^NetworkMsgHeader)(msg.pData)
 
 		switch header.type {

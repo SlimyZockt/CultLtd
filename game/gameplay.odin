@@ -4,7 +4,7 @@ import "core:container/xar"
 import "core:math"
 import "core:math/linalg"
 
-update_logic :: proc(ctx: ^CultCtx, delta_time: f32) {
+update_logic :: proc(ctx: ^GameCtx, delta_time: f32) {
 	if ctx.scene != .Game do return
 	if .Server not_in ctx.flags do return
 

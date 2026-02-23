@@ -3,7 +3,7 @@ package game
 import "core:container/xar"
 import "core:log"
 
-entity_add_sync_server :: proc(ctx: ^CultCtx, entity: Entity) -> EntityHandle {
+entity_add_sync_server :: proc(ctx: ^GameCtx, entity: Entity) -> EntityHandle {
 	entity := entity
 	assert(.Sync in entity.flags)
 	assert(.Server in ctx.flags)
@@ -60,7 +60,7 @@ entity_delete :: proc(entities: ^EntityList, entity_handle: EntityHandle) {
 	}
 	entities.FreeEntityIdx = entity_handle.id
 
-	log.info("[Entity] deleted : %v", entity_handle)
+	log.infof("Entity %v deleted", entity_handle)
 }
 
 
