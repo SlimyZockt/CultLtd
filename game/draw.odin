@@ -2,11 +2,12 @@ package game
 
 import "core:container/xar"
 import "core:fmt"
-import "core:log"
 import vmem "core:mem/virtual"
 import rl "vendor:raylib"
 
 import "../steam"
+
+GHOST_COLOR :: rl.Color{0x93, 0x8a, 0xa9, 0xA0}
 
 draw :: proc(ctx: ^GameCtx, delta_time: f32) {
 	switch ctx.scene {
@@ -33,8 +34,7 @@ draw :: proc(ctx: ^GameCtx, delta_time: f32) {
 		btn_pos := get_ui_pos(ctx.render_size, 0)
 		if rl.GuiButton(rl.Rectangle{btn_pos.x, btn_pos.y, 200, 60}, "Play") {
 			ctx.max_player_count = 1
-			allocator := vmem.arena_allocator(&g_arena)
-			game_enter(ctx, allocator)
+			game_enter(ctx, &g_arena)
 		}
 
 		when PLATFORM == .STEAM {
@@ -80,42 +80,17 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 		default_font := rl.GetFontDefault()
 
 
-		for chunk_x in 0 ..< CHUNK_SIZE {
-			for chunk_y in 0 ..< CHUNK_SIZE {
-				i := chunk_x + (chunk_y * CHUNK_SIZE)
+		WORLD_SIZE :: CHUNK_SIZE
+		rl.DrawTexturePro(
+			ctx.world_texture,
+			rl.Rectangle{0, 0, WORLD_SIZE, WORLD_SIZE},
+			rl.Rectangle{0, 0, WORLD_SIZE * TILE_SIZE, WORLD_SIZE * TILE_SIZE},
+			[2]f32{},
+			0,
+			rl.WHITE,
+		)
 
-				chunk_pos := ctx.chunked_world[i].pos * TILE_SIZE
-				switch ctx.chunked_world[i].biome {
-				case .OCEAN:
-					rl.DrawRectangle(
-						i32(chunk_pos.x),
-						i32(chunk_pos.y),
-						TILE_SIZE,
-						TILE_SIZE,
-						rl.BLUE,
-					)
-				case .PLAINS:
-					rl.DrawRectangle(
-						i32(chunk_pos.x),
-						i32(chunk_pos.y),
-						TILE_SIZE,
-						TILE_SIZE,
-						rl.GREEN,
-					)
-				case .SNOW:
-					rl.DrawRectangle(
-						i32(chunk_pos.x),
-						i32(chunk_pos.y),
-						TILE_SIZE,
-						TILE_SIZE,
-						rl.LIGHTGRAY,
-					)
-				case .DESSERT, .FORREST, .SPECIAL:
-				}
-			}
-		}
-
-		rl.DrawRectangle(0, 0, 64, 64, rl.GRAY)
+		// rl.DrawRectangle(0, 0, 64, 64, rl.GRAY)
 
 		entity_iter := xar.iterator(&ctx.entities.list)
 		for entity in xar.iterate_by_ptr(&entity_iter) {
@@ -134,7 +109,6 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 				rl.BLACK,
 			)
 			if entity.texture_id == 0 {
-				GHOST_COLOR :: rl.Color{0x93, 0x8a, 0xa9, 0xA0}
 				rl.DrawRectanglePro(
 					rl.Rectangle {
 						entity.position.x,
@@ -152,5 +126,31 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 
 	{ 	// draw UI
 		rl.DrawRectangle(0, 0, i32(ctx.render_size.x / 2), i32(ctx.render_size.y / 10), rl.GRAY)
+
+
+		WORLD_SIZE :: CHUNK_SIZE //HACK: For debugging
+		MINIMAP_SIZE :: WORLD_SIZE
+
+		// rl.DrawPixel()
+		rl.DrawTexturePro(
+			ctx.world_texture,
+			rl.Rectangle{0, 0, WORLD_SIZE, WORLD_SIZE},
+			rl.Rectangle{ctx.render_size.x - MINIMAP_SIZE, 0, MINIMAP_SIZE, MINIMAP_SIZE},
+			[2]f32{},
+			0,
+			rl.WHITE,
+		)
+
+		for _, p in ctx.players {
+			player_enity, _ := entity_get(&ctx.entities, p.entity)
+			rl.DrawRectangle(
+				i32(ctx.render_size.x) - (MINIMAP_SIZE) + i32(player_enity.x / TILE_SIZE) - 2,
+				i32(player_enity.y / TILE_SIZE) - 2,
+				4,
+				4,
+				rl.BLACK,
+			)
+		}
+
 	}
 }

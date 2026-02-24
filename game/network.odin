@@ -85,11 +85,9 @@ update_network_steam :: proc(ctx: ^GameCtx) {
 			ctx.scene = .Loading
 		case .Created:
 			ctx.flags += {.Server}
-			allocator := vmem.arena_allocator(&g_arena)
-			game_enter(ctx, allocator, true)
+			game_enter(ctx, &g_arena, true)
 		case .ConnectedToHost:
-			allocator := vmem.arena_allocator(&g_arena)
-			game_enter(ctx, allocator, true)
+			game_enter(ctx, &g_arena, true)
 		case .PeerDisconnected:
 			peer_handle := ctx.players[PlayerId(event.id)].entity
 			peer_entity, _ := entity_get(&ctx.entities, peer_handle)

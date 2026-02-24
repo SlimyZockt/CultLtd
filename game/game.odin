@@ -143,7 +143,8 @@ RenderCtx :: struct {
 	render_size:   [2]f32,
 	camera:        rl.Camera2D,
 	textures:      [dynamic]rl.Texture2D,
-	chunked_world: [CHUNK_SIZE * CHUNK_SIZE]WorldTile,
+	chunk:         [CHUNK_SIZE * CHUNK_SIZE]WorldTile,
+	world_texture: rl.Texture2D,
 }
 
 Inputs :: union #no_nil {
@@ -153,9 +154,8 @@ Inputs :: union #no_nil {
 
 EntityNetworkId :: distinct u64
 
-WORLD_WIDTH :: u32(10_000)
-WORLD_HEIGHT :: u32(10_000)
-WORLD_TILE_COUNT :: WORLD_WIDTH * WORLD_HEIGHT
+WORLD_SIZE :: 10_000
+WORLD_TILE_COUNT :: WORLD_SIZE * WORLD_SIZE
 #assert(WORLD_TILE_COUNT < bits.U32_MAX)
 
 GameCtx :: struct {
@@ -458,6 +458,8 @@ game_should_run :: proc() -> bool {
 @(export)
 game_shutdown :: proc() {
 	rl.SetTraceLogCallback(nil)
+	rl.UnloadTexture(g_game_ctx.world_texture)
+
 	{ 	// Profiler
 		spall.buffer_destroy(&g_spall_ctx, &spall_buffer)
 		spall.context_destroy(&g_spall_ctx)
@@ -503,8 +505,9 @@ game_force_restart :: proc() -> bool {
 	return rl.IsKeyPressed(.F6)
 }
 
-game_enter :: proc(ctx: ^GameCtx, allocator: runtime.Allocator, is_multiplayer := false) {
+game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 	ctx.scene = .Game
+	allocator := vmem.arena_allocator(arena)
 
 	if is_multiplayer && PLATFORM == .STEAM {
 		assert(ctx.steam.max_lobby_size > 0)
@@ -551,26 +554,46 @@ game_enter :: proc(ctx: ^GameCtx, allocator: runtime.Allocator, is_multiplayer :
 		t := linalg.round(player_entity.position)
 		world_pos := [2]f64{f64(t.x), f64(t.y)}
 
+		tmp := vmem.arena_temp_begin(arena)
+		defer vmem.arena_temp_end(tmp)
+
+		// TODO: Change to World
+		WORLD_SIZE :: CHUNK_SIZE
+		img_data := new([WORLD_SIZE * WORLD_SIZE][3]u8, allocator)
+
+		img := rl.Image {
+			format  = .UNCOMPRESSED_R8G8B8,
+			data    = img_data,
+			height  = WORLD_SIZE,
+			width   = WORLD_SIZE,
+			mipmaps = 1,
+		}
+
 		for chunk_x in 0 ..< f64(CHUNK_SIZE) {
 			for chunk_y in 0 ..< f64(CHUNK_SIZE) {
 				chunk_pos := [2]f64{chunk_x, chunk_y}
 				i := int(chunk_x + (chunk_y * CHUNK_SIZE))
 				level := noise.noise_2d(ctx.seed, world_pos + chunk_pos)
 				assert(level >= -1 && level <= 1)
-				ctx.chunked_world[i].pos = world_pos + chunk_pos
+				ctx.chunk[i].pos = world_pos + chunk_pos
+				color := rl.PURPLE
 				switch level {
 				case -1 ..< 0:
-					ctx.chunked_world[i].biome = .OCEAN
+					ctx.chunk[i].biome = .OCEAN
+					color = rl.BLUE
 				case 0 ..< 0.5:
-					ctx.chunked_world[i].biome = .PLAINS
+					ctx.chunk[i].biome = .PLAINS
+					color = rl.GREEN
 				case 0.5 ..< 1:
-					ctx.chunked_world[i].biome = .SNOW
-				// case
+					ctx.chunk[i].biome = .SNOW
+					color = rl.LIGHTGRAY
 				}
+
+				rl.ImageDrawPixel(&img, i32(chunk_x), i32(chunk_y), color)
 			}
 		}
 
-
+		ctx.world_texture = rl.LoadTextureFromImage(img)
 	}
 
 	log.warn("Game was initilazes")
