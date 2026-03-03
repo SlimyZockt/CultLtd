@@ -6,9 +6,12 @@ import "base:runtime"
 import "core:c"
 import "core:container/queue"
 import "core:container/xar"
+import "core:hash"
 import "core:log"
+import "core:math"
 import "core:math/bits"
 import "core:math/linalg"
+import "core:math/linalg/glsl"
 import "core:math/noise"
 import "core:math/rand"
 import vmem "core:mem/virtual"
@@ -135,7 +138,7 @@ WorldTile :: struct {
 	flags:     WorldTileFlags,
 	biome:     Biome,
 	layers:    [2]TextureId,
-	using pos: [2]f64,
+	using pos: [2]f32,
 }
 
 RenderCtx :: struct {
@@ -154,7 +157,8 @@ Inputs :: union #no_nil {
 
 EntityNetworkId :: distinct u64
 
-WORLD_SIZE :: 10_000
+// WORLD_SIZE :: 10_000 // TODO: change this
+WORLD_SIZE :: CHUNK_SIZE
 WORLD_TILE_COUNT :: WORLD_SIZE * WORLD_SIZE
 #assert(WORLD_TILE_COUNT < bits.U32_MAX)
 
@@ -548,17 +552,41 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 	ctx.seed = time.tick_now()._nsec
 	rand.reset(u64(ctx.seed))
 
+
 	{ 	// generate world
+		circle :: proc(dist: [2]$T, $radius: T) -> T where intrinsics.type_is_numeric(T),
+			0 >= radius,
+			1 <= radius {
+			boarder := linalg.smootherstep(
+				radius - (radius * 0.001),
+				radius + (radius * 0.001),
+				linalg.dot(dist, dist) * 4,
+			)
+			return boarder
+		}
+
+		hash22 :: proc(point: [2]$T) -> [2]T where intrinsics.type_is_numeric(T) {
+			return linalg.fract(
+				linalg.sin(
+					[2]T {
+						linalg.vector_dot(point, [2]T{127.1, 331.7}),
+						linalg.vector_dot(point, [2]T{269.5, 183.3}),
+					},
+				) *
+				43758.5453,
+			)
+		}
+
+
 		player := ctx.players[ctx.player_id]
 		player_entity, _ := entity_get(&ctx.entities, player.entity)
-		t := linalg.round(player_entity.position)
-		world_pos := [2]f64{f64(t.x), f64(t.y)}
+		real_pos := linalg.round(player_entity.position)
+		// real_pos := [2]f64{f64(t.x), f64(t.y)}
 
 		tmp := vmem.arena_temp_begin(arena)
 		defer vmem.arena_temp_end(tmp)
 
 		// TODO: Change to World
-		WORLD_SIZE :: CHUNK_SIZE
 		img_data := new([WORLD_SIZE * WORLD_SIZE][3]u8, allocator)
 
 		img := rl.Image {
@@ -569,27 +597,75 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 			mipmaps = 1,
 		}
 
-		for chunk_x in 0 ..< f64(CHUNK_SIZE) {
-			for chunk_y in 0 ..< f64(CHUNK_SIZE) {
-				chunk_pos := [2]f64{chunk_x, chunk_y}
-				i := int(chunk_x + (chunk_y * CHUNK_SIZE))
-				level := noise.noise_2d(ctx.seed, world_pos + chunk_pos)
-				assert(level >= -1 && level <= 1)
-				ctx.chunk[i].pos = world_pos + chunk_pos
-				color := rl.PURPLE
-				switch level {
-				case -1 ..< 0:
-					ctx.chunk[i].biome = .OCEAN
-					color = rl.BLUE
-				case 0 ..< 0.5:
-					ctx.chunk[i].biome = .PLAINS
-					color = rl.GREEN
-				case 0.5 ..< 1:
-					ctx.chunk[i].biome = .SNOW
-					color = rl.LIGHTGRAY
+		// SEGMENT_COUNT :: (WORLD_SIZE * WORLD_SIZE) / 50
+		SEGMENT_COUNT :: WORLD_SIZE / 10
+		for world_x in 0 ..< f32(WORLD_SIZE) {
+			for world_y in 0 ..< f32(WORLD_SIZE) {
+				pos := [2]f32{world_x, world_y}
+				i := int(world_x + (world_y * WORLD_SIZE))
+
+				ctx.chunk[i].pos = real_pos + pos
+				WORLD_CENTER :: WORLD_SIZE / 2
+
+				uv := pos / WORLD_SIZE
+
+				// boarder := linalg.distance(uv, [2]f32{0.5, 0.5})
+				// assert(0.0 <= boarder && boarder <= 1.0)
+				// boarder = clamp(boarder, 0, 1)
+
+				uv_grid := uv * SEGMENT_COUNT
+
+				tile_uv_pos := linalg.floor(uv_grid)
+				tile_uv := linalg.fract(uv_grid)
+
+				min_dist := f32(1)
+				min_point := [2]f32{}
+
+				for y in -1 ..= f32(1) {
+					for x in -1 ..= f32(1) {
+						neighbor := [2]f32{x, y}
+						point := hash22(tile_uv_pos + neighbor)
+						diff := neighbor + point - tile_uv
+						dist := linalg.length(diff)
+						if dist < min_dist {
+							min_dist = dist
+							min_point = point
+						}
+					}
 				}
 
-				rl.ImageDrawPixel(&img, i32(chunk_x), i32(chunk_y), color)
+
+				assert(0.0 <= min_dist && min_dist <= 1.0)
+				border := linalg.distance(min_point, [2]f32{0.5, 0.5})
+				border = clamp(border, 0, 1)
+				assert(0.0 <= border && border <= 1.0)
+				log.debug(border)
+
+				rl_color := rl.BLACK
+				color := min_point * 255
+				rl_color = rl.Color{u8(color.x), u8(color.y), 0, 255}
+				rl_color += rl.Color {
+					0 ..< 3  = u8((1 - math.step(f32(0.1), min_dist)) * 255),
+					3 = 255,
+				}
+
+				switch (border) {
+				case 0 ..< 0.2:
+					ctx.chunk[i].biome = .OCEAN
+					rl_color = rl.BLUE
+				// // case 0.5 ..< 0.7:
+				// // 	ctx.chunk[i].biome = .DESSERT
+				// // 	rl_color = rl.YELLOW
+				// // case 0.7 ..< 1:
+				// // 	ctx.chunk[i].biome = .PLAINS
+				// // 	rl_color = rl.GREEN
+				// // case 0.7 ..< 1:
+				// // 	ctx.chunk[i].biome = .SNOW
+				// // 	color = rl.LIGHTGRAY
+				}
+
+
+				rl.ImageDrawPixel(&img, i32(world_x), i32(world_y), rl_color)
 			}
 		}
 

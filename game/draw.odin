@@ -80,7 +80,6 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 		default_font := rl.GetFontDefault()
 
 
-		WORLD_SIZE :: CHUNK_SIZE
 		rl.DrawTexturePro(
 			ctx.world_texture,
 			rl.Rectangle{0, 0, WORLD_SIZE, WORLD_SIZE},
@@ -128,7 +127,6 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 		rl.DrawRectangle(0, 0, i32(ctx.render_size.x / 2), i32(ctx.render_size.y / 10), rl.GRAY)
 
 
-		WORLD_SIZE :: CHUNK_SIZE //HACK: For debugging
 		MINIMAP_SIZE :: WORLD_SIZE
 
 		// rl.DrawPixel()
