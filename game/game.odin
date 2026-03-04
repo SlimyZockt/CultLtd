@@ -6,13 +6,9 @@ import "base:runtime"
 import "core:c"
 import "core:container/queue"
 import "core:container/xar"
-import "core:hash"
 import "core:log"
-import "core:math"
 import "core:math/bits"
 import "core:math/linalg"
-import "core:math/linalg/glsl"
-import "core:math/noise"
 import "core:math/rand"
 import vmem "core:mem/virtual"
 import os "core:os"
@@ -577,6 +573,9 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 			)
 		}
 
+		uv_to_color :: proc(uv: [2]f32) -> rl.Color {
+			return {u8(uv.x * 255), u8(uv.y * 255), 0, 255}
+		}
 
 		player := ctx.players[ctx.player_id]
 		player_entity, _ := entity_get(&ctx.entities, player.entity)
@@ -597,8 +596,13 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 			mipmaps = 1,
 		}
 
+		// rand.reset(ctx.seed)
+		rand_offset := [2]f32{rand.float32(), rand.float32()}
+
 		// SEGMENT_COUNT :: (WORLD_SIZE * WORLD_SIZE) / 50
-		SEGMENT_COUNT :: WORLD_SIZE / 10
+		SEGMENT_DIVIDER_COUNT :: WORLD_SIZE / 10
+		BIOME_DIVIDER_COUNT :: 2
+		// BIMOE_COUNT :: BIOME_DIVIDER_COUNT * BIOME_DIVIDER_COUNT
 		for world_x in 0 ..< f32(WORLD_SIZE) {
 			for world_y in 0 ..< f32(WORLD_SIZE) {
 				pos := [2]f32{world_x, world_y}
@@ -608,62 +612,81 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 				WORLD_CENTER :: WORLD_SIZE / 2
 
 				uv := pos / WORLD_SIZE
+				segment_uv := uv * SEGMENT_DIVIDER_COUNT
+				grid_pos_in_segment_uv := linalg.floor(segment_uv)
+				pos_in_segment := linalg.fract(segment_uv)
 
-				// boarder := linalg.distance(uv, [2]f32{0.5, 0.5})
-				// assert(0.0 <= boarder && boarder <= 1.0)
-				// boarder = clamp(boarder, 0, 1)
+				biome_uv := uv * BIOME_DIVIDER_COUNT
+				grid_pos_in_biome_uv := linalg.floor(biome_uv)
+				pos_in_biome := linalg.fract(biome_uv)
 
-				uv_grid := uv * SEGMENT_COUNT
+				min_dist_segment := f32(1)
+				nearest_point_segment := [2]f32{}
 
-				tile_uv_pos := linalg.floor(uv_grid)
-				tile_uv := linalg.fract(uv_grid)
-
-				min_dist := f32(1)
-				min_point := [2]f32{}
+				min_dist_biome := f32(1)
+				nearest_point_biome := [2]f32{}
 
 				for y in -1 ..= f32(1) {
-					for x in -1 ..= f32(1) {
-						neighbor := [2]f32{x, y}
-						point := hash22(tile_uv_pos + neighbor)
-						diff := neighbor + point - tile_uv
-						dist := linalg.length(diff)
-						if dist < min_dist {
-							min_dist = dist
-							min_point = point
+					for x in -1 ..= f32(1) { 	//TODO: make it cleaner
+						neighbor_tile_pos := [2]f32{x, y}
+						{
+							neighbor_pos_in_segment := grid_pos_in_segment_uv + neighbor_tile_pos
+							anchor_point_in_segment := hash22(
+								neighbor_pos_in_segment + rand_offset,
+							) // TODO: change to Poisson-Disc Sampling
+							maybe_nearest_point_in_segment :=
+								neighbor_tile_pos + anchor_point_in_segment
+
+							diff := maybe_nearest_point_in_segment - pos_in_segment
+							dist := linalg.length(diff)
+							if dist < min_dist_segment {
+								min_dist_segment = dist
+								nearest_point_segment =
+									maybe_nearest_point_in_segment + grid_pos_in_segment_uv
+							}
+						}
+						{
+							neighbor_pos_in_biome := grid_pos_in_biome_uv + neighbor_tile_pos
+							anchor_point_in_biome := hash22(neighbor_pos_in_biome + rand_offset) // TODO: change to Poisson-Disc Sampling
+							maybe_nearest_point_in_biome :=
+								neighbor_tile_pos + anchor_point_in_biome
+
+							diff := maybe_nearest_point_in_biome - pos_in_biome
+							dist := linalg.length(diff)
+							if dist < min_dist_biome {
+								min_dist_biome = dist
+								nearest_point_biome =
+									maybe_nearest_point_in_biome + grid_pos_in_biome_uv
+							}
+
 						}
 					}
 				}
 
-
-				assert(0.0 <= min_dist && min_dist <= 1.0)
-				border := linalg.distance(min_point, [2]f32{0.5, 0.5})
-				border = clamp(border, 0, 1)
-				assert(0.0 <= border && border <= 1.0)
-				log.debug(border)
+				point_segment := nearest_point_segment / SEGMENT_DIVIDER_COUNT // revert uv space
+				// diff := [2]f32{0.5, 0.5} - point_segment
+				// dist := linalg.length(diff)
+				dist := linalg.distance(point_segment, [2]f32{.5, .5})
+				assert(0.0 <= dist && dist <= 1.0)
+				log.debug(dist)
 
 				rl_color := rl.BLACK
-				color := min_point * 255
-				rl_color = rl.Color{u8(color.x), u8(color.y), 0, 255}
-				rl_color += rl.Color {
-					0 ..< 3  = u8((1 - math.step(f32(0.1), min_dist)) * 255),
-					3 = 255,
-				}
-
-				switch (border) {
-				case 0 ..< 0.2:
+				color := nearest_point_biome * 255
+				dist = 1 - dist
+				switch {
+				case dist < .6:
 					ctx.chunk[i].biome = .OCEAN
 					rl_color = rl.BLUE
-				// // case 0.5 ..< 0.7:
-				// // 	ctx.chunk[i].biome = .DESSERT
-				// // 	rl_color = rl.YELLOW
-				// // case 0.7 ..< 1:
-				// // 	ctx.chunk[i].biome = .PLAINS
-				// // 	rl_color = rl.GREEN
-				// // case 0.7 ..< 1:
-				// // 	ctx.chunk[i].biome = .SNOW
-				// // 	color = rl.LIGHTGRAY
+				case dist < .69:
+					ctx.chunk[i].biome = .DESSERT
+					rl_color = rl.YELLOW
+				case dist < .92:
+					rl_color = rl.Color{u8(color.x), u8(color.y), 0, 255} //TODO: DEALT WITH BIOMES
+				case dist < 1:
+					ctx.chunk[i].biome = .SNOW
+					rl_color = rl.LIGHTGRAY
+				case:
 				}
-
 
 				rl.ImageDrawPixel(&img, i32(world_x), i32(world_y), rl_color)
 			}
