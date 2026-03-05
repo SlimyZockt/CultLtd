@@ -2,7 +2,6 @@ package game
 
 import "core:container/xar"
 import "core:fmt"
-import vmem "core:mem/virtual"
 import rl "vendor:raylib"
 
 import "../steam"
@@ -16,8 +15,8 @@ draw :: proc(ctx: ^GameCtx, delta_time: f32) {
 		rl.DrawTextPro(
 			default_font,
 			"Loading",
-			[2]f32{ctx.render_size.x / 2, ctx.render_size.y / 2},
-			[2]f32{},
+			Vec2{ctx.render_size.x / 2, ctx.render_size.y / 2},
+			Vec2{},
 			0,
 			32,
 			1,
@@ -27,7 +26,7 @@ draw :: proc(ctx: ^GameCtx, delta_time: f32) {
 	case .Game:
 		draw_game(ctx, delta_time)
 	case .MainMenu:
-		get_ui_pos :: proc(render_size: [2]f32, i: f32) -> [2]f32 {
+		get_ui_pos :: proc(render_size: Vec2, i: f32) -> Vec2 {
 			return {(render_size.x / 2) - 100, (render_size.y / 4) + i * 70}
 		}
 
@@ -84,7 +83,7 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 			ctx.world_texture,
 			rl.Rectangle{0, 0, WORLD_SIZE, WORLD_SIZE},
 			rl.Rectangle{0, 0, WORLD_SIZE * TILE_SIZE, WORLD_SIZE * TILE_SIZE},
-			[2]f32{},
+			Vec2{},
 			0,
 			rl.WHITE,
 		)
@@ -100,8 +99,8 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 			rl.DrawTextPro(
 				default_font,
 				cstr,
-				[2]f32{entity.position.x, entity.position.y - entity.size.y},
-				[2]f32{},
+				rl.Vector2{entity.position.x, entity.position.y - entity.size.y},
+				Vec2{},
 				0,
 				32,
 				1,
@@ -115,7 +114,7 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 						entity.size.x,
 						entity.size.y,
 					},
-					[2]f32{},
+					Vec2{},
 					0,
 					GHOST_COLOR,
 				)
@@ -134,7 +133,7 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 			ctx.world_texture,
 			rl.Rectangle{0, 0, WORLD_SIZE, WORLD_SIZE},
 			rl.Rectangle{ctx.render_size.x - MINIMAP_SIZE, 0, MINIMAP_SIZE, MINIMAP_SIZE},
-			[2]f32{},
+			Vec2{},
 			0,
 			rl.WHITE,
 		)

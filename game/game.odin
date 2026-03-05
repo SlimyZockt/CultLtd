@@ -40,15 +40,20 @@ EntityHandle :: struct {
 }
 
 INVALID_PLAYER_ID :: PlayerId(0)
+
+Vec2 :: [2]f32
+Vec3 :: [3]f32
+Color :: rl.Color
+
 EntitySyncData :: struct {
 	speed:          f32,
 	flags:          EntityFlags,
 	angle:          f32,
 	friction:       f32,
-	direction:      [2]f32,
-	using position: [2]f32,
-	velocity:       [2]f32,
-	size:           [2]f32,
+	direction:      Vec2,
+	using position: Vec2,
+	velocity:       Vec2,
+	size:           Vec2,
 	network_id:     EntityNetworkId,
 	ttl:            Seconds,
 }
@@ -101,8 +106,8 @@ PlayerId :: distinct u64
 PlayerSyncData :: struct {
 	input_down:            ActionsDown,
 	input_pressed:         ActionsPressed,
-	mouse_position_screen: [2]f32,
-	mouse_position_world:  [2]f32,
+	mouse_position_screen: Vec2,
+	mouse_position_world:  Vec2,
 }
 
 Player :: struct {
@@ -134,12 +139,12 @@ WorldTile :: struct {
 	flags:     WorldTileFlags,
 	biome:     Biome,
 	layers:    [2]TextureId,
-	using pos: [2]f32,
+	using pos: Vec2,
 }
 
 RenderCtx :: struct {
 	scene:         Scenes,
-	render_size:   [2]f32,
+	render_size:   Vec2,
 	camera:        rl.Camera2D,
 	textures:      [dynamic]rl.Texture2D,
 	chunk:         [CHUNK_SIZE * CHUNK_SIZE]WorldTile,
@@ -573,7 +578,20 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 			)
 		}
 
-		uv_to_color :: proc(uv: [2]f32) -> rl.Color {
+		poisson_disk_sample_2D :: proc(
+			points: [dynamic]int,
+			min_distance: u8,
+			$max_tries: u8,
+		) -> (
+			point: Vec2,
+		) {
+			// DIMONSIONS :: 2
+
+
+			return
+		}
+
+		uv_to_color :: proc(uv: Vec2) -> rl.Color {
 			return {u8(uv.x * 255), u8(uv.y * 255), 0, 255}
 		}
 
@@ -597,15 +615,15 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 		}
 
 		// rand.reset(ctx.seed)
-		rand_offset := [2]f32{rand.float32(), rand.float32()}
+		rand_offset := Vec2{rand.float32(), rand.float32()}
 
 		// SEGMENT_COUNT :: (WORLD_SIZE * WORLD_SIZE) / 50
 		SEGMENT_DIVIDER_COUNT :: WORLD_SIZE / 10
 		BIOME_DIVIDER_COUNT :: 2
 		// BIMOE_COUNT :: BIOME_DIVIDER_COUNT * BIOME_DIVIDER_COUNT
-		for world_x in 0 ..< f32(WORLD_SIZE) {
-			for world_y in 0 ..< f32(WORLD_SIZE) {
-				pos := [2]f32{world_x, world_y}
+		for world_y in 0 ..< f32(WORLD_SIZE) {
+			for world_x in 0 ..< f32(WORLD_SIZE) {
+				pos := Vec2{world_x, world_y}
 				i := int(world_x + (world_y * WORLD_SIZE))
 
 				ctx.chunk[i].pos = real_pos + pos
@@ -616,62 +634,34 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 				grid_pos_in_segment_uv := linalg.floor(segment_uv)
 				pos_in_segment := linalg.fract(segment_uv)
 
-				biome_uv := uv * BIOME_DIVIDER_COUNT
-				grid_pos_in_biome_uv := linalg.floor(biome_uv)
-				pos_in_biome := linalg.fract(biome_uv)
-
 				min_dist_segment := f32(1)
-				nearest_point_segment := [2]f32{}
-
-				min_dist_biome := f32(1)
-				nearest_point_biome := [2]f32{}
+				nearest_point_segment := Vec2{}
 
 				for y in -1 ..= f32(1) {
 					for x in -1 ..= f32(1) { 	//TODO: make it cleaner
-						neighbor_tile_pos := [2]f32{x, y}
-						{
-							neighbor_pos_in_segment := grid_pos_in_segment_uv + neighbor_tile_pos
-							anchor_point_in_segment := hash22(
-								neighbor_pos_in_segment + rand_offset,
-							) // TODO: change to Poisson-Disc Sampling
-							maybe_nearest_point_in_segment :=
-								neighbor_tile_pos + anchor_point_in_segment
+						neighbor_tile_pos := Vec2{x, y}
+						neighbor_pos_in_segment := grid_pos_in_segment_uv + neighbor_tile_pos
+						anchor_point_in_segment := hash22(neighbor_pos_in_segment + rand_offset) // TODO: change to Poisson-Disc Sampling
+						maybe_nearest_point_in_segment :=
+							neighbor_tile_pos + anchor_point_in_segment
 
-							diff := maybe_nearest_point_in_segment - pos_in_segment
-							dist := linalg.length(diff)
-							if dist < min_dist_segment {
-								min_dist_segment = dist
-								nearest_point_segment =
-									maybe_nearest_point_in_segment + grid_pos_in_segment_uv
-							}
-						}
-						{
-							neighbor_pos_in_biome := grid_pos_in_biome_uv + neighbor_tile_pos
-							anchor_point_in_biome := hash22(neighbor_pos_in_biome + rand_offset) // TODO: change to Poisson-Disc Sampling
-							maybe_nearest_point_in_biome :=
-								neighbor_tile_pos + anchor_point_in_biome
-
-							diff := maybe_nearest_point_in_biome - pos_in_biome
-							dist := linalg.length(diff)
-							if dist < min_dist_biome {
-								min_dist_biome = dist
-								nearest_point_biome =
-									maybe_nearest_point_in_biome + grid_pos_in_biome_uv
-							}
-
+						diff := maybe_nearest_point_in_segment - pos_in_segment
+						dist := linalg.length(diff)
+						if dist < min_dist_segment {
+							min_dist_segment = dist
+							nearest_point_segment =
+								maybe_nearest_point_in_segment + grid_pos_in_segment_uv
 						}
 					}
 				}
 
 				point_segment := nearest_point_segment / SEGMENT_DIVIDER_COUNT // revert uv space
-				// diff := [2]f32{0.5, 0.5} - point_segment
-				// dist := linalg.length(diff)
-				dist := linalg.distance(point_segment, [2]f32{.5, .5})
+				dist := linalg.distance(point_segment, Vec2{.5, .5})
 				assert(0.0 <= dist && dist <= 1.0)
 				log.debug(dist)
 
 				rl_color := rl.BLACK
-				color := nearest_point_biome * 255
+				color := nearest_point_segment * 255
 				dist = 1 - dist
 				switch {
 				case dist < .6:

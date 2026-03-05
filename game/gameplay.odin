@@ -10,7 +10,7 @@ update_logic :: proc(ctx: ^GameCtx, delta_time: f32) {
 
 	for _, &player in ctx.players {
 		entity, _ := entity_get(&ctx.entities, player.entity)
-		input: [2]f32
+		input: Vec2
 
 		input_down := player.input_down
 		if .Up in input_down do input.y -= 1
@@ -27,7 +27,7 @@ update_logic :: proc(ctx: ^GameCtx, delta_time: f32) {
 			defer player.input_pressed -= {.PrimaryAction}
 			diff := player.mouse_position_world - entity.position
 			angle := math.atan2(diff.y, diff.x)
-			direction := [2]f32{math.cos(angle), math.sin(angle)}
+			direction := Vec2{math.cos(angle), math.sin(angle)}
 			entity_add_sync_server(
 				ctx,
 				Entity {
@@ -51,8 +51,7 @@ update_logic :: proc(ctx: ^GameCtx, delta_time: f32) {
 	}
 
 	entity_iter := xar.iterator(&ctx.entities.list)
-	for entity in xar.iterate_by_ptr(&entity_iter) {
-		i := u64(entity_iter.idx) - 1
+	for entity, i in xar.iterate_by_ptr(&entity_iter) {
 		if .Physics in entity.flags {
 			if entity.velocity != {0, 0} {
 				entity.position += entity.velocity * delta_time
@@ -60,7 +59,7 @@ update_logic :: proc(ctx: ^GameCtx, delta_time: f32) {
 				speed := linalg.length(entity.velocity)
 				new_speed := max(f32(0), speed - entity.friction * delta_time)
 				if new_speed == 0 {
-					entity.velocity = [2]f32{0, 0}
+					entity.velocity = Vec2{0, 0}
 				} else {
 					entity.velocity = linalg.normalize(entity.velocity) * new_speed
 				}
@@ -69,7 +68,7 @@ update_logic :: proc(ctx: ^GameCtx, delta_time: f32) {
 
 		if .TTL in entity.flags {
 			if entity.ttl <= 0 {
-				entity_delete_sync_server(&ctx.entities, EntityHandle{i, entity.generation})
+				entity_delete_sync_server(&ctx.entities, EntityHandle{u64(i), entity.generation})
 			} else {
 				entity.ttl -= Seconds(delta_time)
 			}
