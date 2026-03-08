@@ -579,7 +579,7 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 		}
 
 		poisson_disk_sample_square_2D :: proc(
-			points: [dynamic]int,
+			points: [dynamic]Vec2,
 			min_distance: u8,
 			$max_tries: u8,
 			$size: u64,
