@@ -586,7 +586,7 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 		) -> (
 			point: Vec2,
 		) {
-			// DIMONSIONS :: 2
+			DIMONSIONS :: 2
 
 
 			return
