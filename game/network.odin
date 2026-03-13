@@ -15,7 +15,7 @@ update_network_steam :: proc(data: steam.NetEvent, user_data: rawptr) {
 
 		switch header.type {
 		case .ServerSnapshot:
-			assert(.Server not_in ctx.flags)
+			assert(.Host not_in ctx.flags)
 			data := (^NetworkServerSnapshot)(msg.pData)
 			assert(data.entity_count <= MAX_ENTITY_SYNC_COUNT)
 			for i in 0 ..< min(data.entity_count, MAX_ENTITY_SYNC_COUNT) {
@@ -55,7 +55,7 @@ update_network_steam :: proc(data: steam.NetEvent, user_data: rawptr) {
 			}
 
 		case .ClientInput:
-			assert(.Server in ctx.flags)
+			assert(.Host in ctx.flags)
 			data := (^NetworkClientInput)(msg.pData)
 			player, ok := ctx.players[data.id]
 			if !ok do return
@@ -63,7 +63,7 @@ update_network_steam :: proc(data: steam.NetEvent, user_data: rawptr) {
 			ctx.players[data.id] = player
 
 		case .PlayerAssignment:
-			assert(.Server not_in ctx.flags)
+			assert(.Host not_in ctx.flags)
 			data := (^NetworkPlayerAssignment)(msg.pData)
 			if data.target_player_id == ctx.player_id {
 				handle, exists := ctx.network_id_to_handle_client[data.entity_network_id]
@@ -79,7 +79,7 @@ update_network_steam :: proc(data: steam.NetEvent, user_data: rawptr) {
 	case steam.NetEventConnectingToHost:
 		ctx.scene = .Loading
 	case steam.NetEventCreated:
-		ctx.flags += {.Server}
+		ctx.flags += {.Host}
 		game_enter(ctx, &g_arena, true)
 	case steam.NetEventConnectedToHost:
 		game_enter(ctx, &g_arena, true)
@@ -107,7 +107,7 @@ update_network_steam :: proc(data: steam.NetEvent, user_data: rawptr) {
 	}
 
 	if ctx.scene != .Game do return
-	if .Server in ctx.flags {
+	if .Host in ctx.flags {
 		packet := NetworkServerSnapshot {
 			type = .ServerSnapshot,
 		}
@@ -137,7 +137,7 @@ update_network_steam :: proc(data: steam.NetEvent, user_data: rawptr) {
 		}
 	}
 
-	if .Server not_in ctx.flags {
+	if .Host not_in ctx.flags {
 		player := ctx.players[ctx.player_id]
 		packet := NetworkClientInput {
 			type   = .ClientInput,

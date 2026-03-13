@@ -7,6 +7,7 @@ import "core:c"
 import "core:container/queue"
 import "core:container/xar"
 import "core:log"
+import "core:math"
 import "core:math/bits"
 import "core:math/linalg"
 import "core:math/rand"
@@ -26,10 +27,10 @@ EntityFlagBits :: enum u32 {
 	Sync,
 	Alive,
 	Destroy,
-	Physics,
+	DestroyOnVelocityStop,
+	Velocity,
 	TTL,
 }
-
 EntityFlags :: bit_set[EntityFlagBits;u32]
 
 TextureId :: distinct u64
@@ -73,7 +74,8 @@ EntityList :: struct {
 
 CultCtxFlagBits :: enum u32 {
 	DebugCross,
-	Server,
+	Host,
+	Multiplayer,
 	Client,
 }
 
@@ -118,7 +120,6 @@ Player :: struct {
 }
 
 
-TILE_SIZE :: 32
 CHUNK_SIZE :: 100
 
 WorldTileFlagBits :: enum u32 {
@@ -236,8 +237,8 @@ PLAYER_ENTITY :: Entity {
 	net = {
 		speed = 500,
 		size = {32, 64},
-		flags = {.Controlabe, .Sync, .Alive, .Physics},
-		friction = 1000,
+		flags = {.Controlabe, .Sync, .Alive, .Velocity},
+		friction = math.F32_MAX,
 	},
 }
 
@@ -519,8 +520,9 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 		ctx.player_id = PlayerId(ctx.steam.steam_id)
 		ctx.max_player_count = ctx.steam.max_lobby_size
 		ctx.player_count = ctx.steam.lobby_size
+		ctx.flags += {.Multiplayer}
 	} else if !is_multiplayer && PLATFORM == .STEAM {
-		ctx.flags += {.Server}
+		ctx.flags += {.Host}
 		ctx.player_id = PlayerId(ctx.steam.steam_id)
 		ctx.max_player_count = 1
 		ctx.player_count = 1
@@ -537,7 +539,7 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 	ensure(err == nil)
 	entities_alloc := vmem.arena_allocator(&ctx.entities.arena)
 	xar.init(&ctx.entities.list, entities_alloc)
-	if .Server in ctx.flags {
+	if .Host in ctx.flags {
 		assert(ctx.player_id != 0)
 		assert(ctx.player_count == 1)
 		entity := PLAYER_ENTITY
@@ -703,4 +705,83 @@ game_exit :: proc(ctx: ^GameCtx, allocator := context.allocator) {
 	xar.destroy(&ctx.entities.list)
 	vmem.arena_destroy(&g_arena)
 	vmem.arena_destroy(&ctx.entities.arena)
+}
+
+
+entity_add_sync_server :: proc(ctx: ^GameCtx, entity: Entity) -> EntityHandle {
+	entity := entity
+	assert(.Sync in entity.flags)
+	assert(.Host in ctx.flags)
+	entity.network_id = ctx.network_next_id_server
+	ctx.network_next_id_server += 1
+	// entity.owner_id =
+	return entity_add(&ctx.entities, entity)
+}
+
+entity_add :: proc(entities: ^EntityList, entity: Entity) -> EntityHandle {
+	if idx, ok := entities.FreeEntityIdx.?; ok {
+		new_entity := xar.get_ptr(&entities.list, idx)
+		generation := new_entity.generation
+		entities.FreeEntityIdx = new_entity.NextFreeEntityIdx
+
+		new_entity^ = entity
+		new_entity.NextFreeEntityIdx = nil
+		new_entity.generation = generation
+
+		return EntityHandle{idx, generation}
+	}
+
+
+	assert(entity.generation == 0)
+	assert(entity.NextFreeEntityIdx == nil)
+	xar.append(&entities.list, entity)
+
+	idx := entities.list.len - 1
+	return EntityHandle{u64(idx), 0}
+}
+
+entity_delete_sync_server :: proc(ctx: ^GameCtx, entity_handle: EntityHandle) {
+	entity, ok := entity_get(&ctx.entities, entity_handle)
+	assert(.Sync in entity.flags)
+	if !ok {
+		log.errorf("try to delete sync an not existing element %v", entity_handle)
+		return
+	}
+
+	if .Multiplayer in ctx.flags {
+		entity.flags += {.Destroy}
+	} else {
+		entity_delete(&ctx.entities, entity_handle)
+	}
+}
+
+entity_delete :: proc(entities: ^EntityList, entity_handle: EntityHandle) {
+	entity := xar.get_ptr(&entities.list, entity_handle.id)
+	if entity.generation != entity_handle.generation {
+		log.errorf("try to delete an not existing element %v", entity_handle)
+		return
+	}
+
+	generation := entity.generation + 1
+	entity^ = {
+		generation        = generation,
+		NextFreeEntityIdx = entities.FreeEntityIdx,
+	}
+	entities.FreeEntityIdx = entity_handle.id
+
+	log.infof("Entity %v deleted", entity_handle)
+}
+
+
+entity_get :: proc(entities: ^EntityList, entity_handle: EntityHandle) -> (^Entity, bool) {
+	@(static) entity_stub: Entity
+
+	if int(entity_handle.id) >= entities.list.len do return &entity_stub, false
+	entity := xar.get_ptr(&entities.list, entity_handle.id)
+	if entity.generation != entity_handle.generation {
+		log.error("Wrong generation entity")
+		return &entity_stub, false
+	}
+
+	return entity, true
 }

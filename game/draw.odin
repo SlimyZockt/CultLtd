@@ -64,6 +64,7 @@ draw :: proc(ctx: ^GameCtx, delta_time: f32) {
 
 }
 
+TILE_SIZE :: 32
 draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 	player, ok := ctx.players[ctx.player_id]
 	if ok {
@@ -78,7 +79,6 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 		defer rl.EndMode2D()
 		default_font := rl.GetFontDefault()
 
-
 		rl.DrawTexturePro(
 			ctx.world_texture,
 			rl.Rectangle{0, 0, WORLD_SIZE, WORLD_SIZE},
@@ -91,8 +91,7 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 		// rl.DrawRectangle(0, 0, 64, 64, rl.GRAY)
 
 		entity_iter := xar.iterator(&ctx.entities.list)
-		for entity in xar.iterate_by_ptr(&entity_iter) {
-			i := u64(entity_iter.idx) - 1
+		for entity, i in xar.iterate_by_ptr(&entity_iter) {
 			if .Alive not_in entity.flags do continue
 			cstr := fmt.ctprintf("%v:%v", i, entity.generation)
 			// log.debug(i, entity.generation)
