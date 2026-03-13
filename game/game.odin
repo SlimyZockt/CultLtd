@@ -433,8 +433,7 @@ game_update :: proc() {
 	when PLATFORM == .STEAM {
 		for g_game_ctx.elapsed_net_time >= NET_TICK_RATE {
 			g_game_ctx.elapsed_net_time -= NET_TICK_RATE
-			_ = steam.update_callback(&g_game_ctx.steam)
-			update_network_steam(&g_game_ctx)
+			steam.update_callback(&g_game_ctx.steam, update_network_steam, &g_game_ctx)
 		}
 	}
 
@@ -659,7 +658,6 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 				point_segment := nearest_point_segment / SEGMENT_DIVIDER_COUNT // revert uv space
 				dist := linalg.distance(point_segment, Vec2{.5, .5})
 				assert(0.0 <= dist && dist <= 1.0)
-				log.debug(dist)
 
 				rl_color := rl.BLACK
 				color := nearest_point_segment * 255
