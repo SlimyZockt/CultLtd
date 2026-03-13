@@ -9,10 +9,9 @@ import "core:log"
 update_network_steam :: proc(data: steam.NetEvent, user_data: rawptr) {
 	ctx := (^GameCtx)(user_data)
 	switch v in data {
-	case steam.NetEvenReceive:
+	case steam.NetEventReceive:
 		msg := v.msg
 		header := (^NetworkMsgHeader)(msg.pData)
-
 		switch header.type {
 		case .ServerSnapshot:
 			assert(.Host not_in ctx.flags)

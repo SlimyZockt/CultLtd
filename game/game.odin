@@ -236,7 +236,7 @@ g_spall_ctx: spall.Context
 PLAYER_ENTITY :: Entity {
 	net = {
 		speed = 500,
-		size = {32, 64},
+		size = {8, 64},
 		flags = {.Controlabe, .Sync, .Alive, .Velocity},
 		friction = math.F32_MAX,
 	},

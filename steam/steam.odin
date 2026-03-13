@@ -147,7 +147,7 @@ init :: proc(ctx: ^SteamCtx) {
 	steam.NetworkingUtils_InitRelayNetworkAccess(ctx.network_util)
 }
 
-NetEvenReceive :: struct {
+NetEventReceive :: struct {
 	msg: ^steam.SteamNetworkingMessage,
 }
 
@@ -171,7 +171,7 @@ NetEventDisconnectedFormHost :: struct {
 
 NetEvent :: union {
 	NetEventCreated,
-	NetEvenReceive,
+	NetEventReceive,
 	NetEventConnectedToHost,
 	NetEventConnectingToHost,
 	NetEventDisconnectedFormHost,
