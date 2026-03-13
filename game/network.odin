@@ -6,9 +6,11 @@ import "core:container/queue"
 import "core:container/xar"
 import "core:log"
 
-update_network_steam :: proc(ctx: ^GameCtx) {
-	on_receive_msg :: proc(msg: ^steamworks.SteamNetworkingMessage, user_data: rawptr) {
-		ctx := (^GameCtx)(user_data)
+update_network_steam :: proc(data: steam.NetEvent, user_data: rawptr) {
+	ctx := (^GameCtx)(user_data)
+	switch v in data {
+	case steam.NetEvenReceive:
+		msg := v.msg
 		header := (^NetworkMsgHeader)(msg.pData)
 
 		switch header.type {
@@ -74,46 +76,37 @@ update_network_steam :: proc(ctx: ^GameCtx) {
 				}
 			}
 		}
-	}
-
-	for ctx.steam.event_queue.len > 0 {
-		event := queue.pop_front(&ctx.steam.event_queue)
-		log.debug(event)
-		switch event.type {
-		case .ConnectingToHost:
-			ctx.scene = .Loading
-		case .Created:
-			ctx.flags += {.Server}
-			game_enter(ctx, &g_arena, true)
-		case .ConnectedToHost:
-			game_enter(ctx, &g_arena, true)
-		case .PeerDisconnected:
-			peer_handle := ctx.players[PlayerId(event.id)].entity
-			peer_entity, _ := entity_get(&ctx.entities, peer_handle)
-			peer_entity.flags += {.Destroy}
-			peer_entity.flags -= {.Alive}
-		case .PeerConnected:
-			ctx.player_count += 1
-			entity := PLAYER_ENTITY
-			new_handle := entity_add_sync_server(ctx, entity)
-			ctx.players[PlayerId(event.id)] = {
-				entity = new_handle,
-			}
-			new_entity, _ := entity_get(&ctx.entities, new_handle)
-			assignment := NetworkPlayerAssignment {
-				type              = .PlayerAssignment,
-				target_player_id  = PlayerId(event.id),
-				entity_network_id = new_entity.network_id,
-			}
-			steam.write(&ctx.steam, &assignment, size_of(assignment))
-		case .DisconnectedFormHost:
-			game_exit(ctx)
+	case steam.NetEventConnectingToHost:
+		ctx.scene = .Loading
+	case steam.NetEventCreated:
+		ctx.flags += {.Server}
+		game_enter(ctx, &g_arena, true)
+	case steam.NetEventConnectedToHost:
+		game_enter(ctx, &g_arena, true)
+	case steam.NetEventPeerDisconnected:
+		peer_handle := ctx.players[PlayerId(v.id)].entity
+		peer_entity, _ := entity_get(&ctx.entities, peer_handle)
+		peer_entity.flags += {.Destroy}
+		peer_entity.flags -= {.Alive}
+	case steam.NetEventPeerConnected:
+		ctx.player_count += 1
+		entity := PLAYER_ENTITY
+		new_handle := entity_add_sync_server(ctx, entity)
+		ctx.players[PlayerId(v.id)] = {
+			entity = new_handle,
 		}
+		new_entity, _ := entity_get(&ctx.entities, new_handle)
+		assignment := NetworkPlayerAssignment {
+			type              = .PlayerAssignment,
+			target_player_id  = PlayerId(v.id),
+			entity_network_id = new_entity.network_id,
+		}
+		steam.write(&ctx.steam, &assignment, size_of(assignment))
+	case steam.NetEventDisconnectedFormHost:
+		game_exit(ctx)
 	}
 
 	if ctx.scene != .Game do return
-	steam.process_received_msg(ctx.steam, on_receive_msg, ctx)
-
 	if .Server in ctx.flags {
 		packet := NetworkServerSnapshot {
 			type = .ServerSnapshot,
