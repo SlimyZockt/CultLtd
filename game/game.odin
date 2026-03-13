@@ -579,17 +579,27 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 		}
 
 		poisson_disk_sample_square_2D :: proc(
-			points: [dynamic]Vec2,
 			min_distance: u8,
-			$max_tries: u8,
+			$max_tries_per_point: u8,
+			$radius: u64,
 			$size: u64,
-		) -> (
-			point: Vec2,
-		) {
+			arena: ^runtime.Arena,
+		) -> []Vec2 {
 			DIMONSIONS :: 2
+			CELL_SIZE :: radius / intrinsics.sqrt(2)
+
+			alloc := vmem.arena_allocator(arena)
+
+			points := make_dynamic_array([dynamic]Vec2, (size * size) / 10, alloc)
+			points[0] = Vec2{rand.float32(), rand.float32()}
+			append(&points, Vec2{1, 0})
+
+			for {
+				points
+			}
 
 
-			return
+			return points[:]
 		}
 
 		uv_to_color :: proc(uv: Vec2) -> rl.Color {
