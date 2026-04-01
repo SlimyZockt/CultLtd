@@ -23,7 +23,7 @@ genereate_png_from_ase :: proc(aseprite_path, assets_path: string, allocator: ru
 		ext := fp.ext(fi.name)
 		if !(ext == ".aseprite" || ext == ".ase") do continue
 
-		log.info(fi.name)
+		log.infof("[Aseprite] -- parseing file: %s", fi.name)
 
 
 		pd: os.Process_Desc
@@ -39,7 +39,6 @@ genereate_png_from_ase :: proc(aseprite_path, assets_path: string, allocator: ru
 
 		_, stdout, stderr, err := os.process_exec(pd, allocator)
 		assert(err == nil)
-		log.debug(stdout, stderr)
 		delete(stdout)
 		delete(stderr)
 	}

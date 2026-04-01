@@ -32,7 +32,7 @@ update_logic :: proc(ctx: ^GameCtx, delta_time: f32) {
 			entity_add_sync_server(
 				ctx,
 				Entity {
-					size = {16, 16},
+					size = {4, 4},
 					speed = 300,
 					position = player_entity.position,
 					velocity = direction * 600 + player_entity.velocity,
@@ -45,7 +45,7 @@ update_logic :: proc(ctx: ^GameCtx, delta_time: f32) {
 			)
 		}
 
-		if .Dash in player.input_pressed { 	// Shooting
+		if .Dash in player.input_pressed {
 			defer player.input_pressed -= {.Dash}
 			player_entity.velocity = {200, 200} * input
 		}

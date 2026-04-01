@@ -135,10 +135,10 @@ init :: proc(ctx: ^SteamCtx) {
 	assert(err == nil)
 	context.allocator = vmem.arena_allocator(&g_arena)
 
-	steam.Client_SetWarningMessageHook(ctx.client, steam_debug_text_hook)
+	// steam.Client_SetWarningMessageHook(ctx.client, steam_debug_text_hook)
 	steam.NetworkingUtils_SetDebugOutputFunction(
 		ctx.network_util,
-		.Everything,
+		.Warning,
 		steam_networtk_debug_to_log,
 	)
 	ctx.poll_group = steam.NetworkingSockets_CreatePollGroup(ctx.network_sockets)
@@ -184,6 +184,7 @@ update_callback :: proc(
 	ctx: ^SteamCtx,
 	network_event_callback: proc(data: NetEvent, user_data: rawptr),
 	user_data: rawptr = nil,
+	log_callback := false,
 ) {
 	context.allocator = vmem.arena_allocator(&g_arena)
 	temp := vmem.arena_temp_begin(&g_arena)
@@ -218,7 +219,10 @@ update_callback :: proc(
 			continue
 		}
 
-		log.info("Callback:", callback.iCallback)
+		if log_callback {
+			log.info("Callback:", callback.iCallback)
+		}
+
 		#partial switch callback.iCallback {
 		case .LobbyCreated:
 			data := (^steam.LobbyCreated)(callback.pubParam)

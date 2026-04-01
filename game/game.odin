@@ -19,8 +19,10 @@ import "core:time"
 import rl "vendor:raylib"
 import stbsp "vendor:stb/sprintf"
 
-import ase "../aseprite"
+import ase_cli "../aseprite"
 import "../steam"
+import ase "../vendor/odin-aseprite/"
+import utils "../vendor/odin-aseprite/utils/"
 
 EntityFlagBits :: enum u32 {
 	Controlabe,
@@ -33,7 +35,16 @@ EntityFlagBits :: enum u32 {
 }
 EntityFlags :: bit_set[EntityFlagBits;u32]
 
-TextureId :: distinct u64
+TextureId :: enum u64 {
+	None = 0,
+	Player,
+}
+
+@(rodata)
+TextureData := [TextureId][]byte {
+	.None   = {},
+	.Player = #load("../debug_assets/player.png"),
+}
 
 EntityHandle :: struct {
 	id:         u64,
@@ -57,6 +68,8 @@ EntitySyncData :: struct {
 	size:           Vec2,
 	network_id:     EntityNetworkId,
 	ttl:            Seconds,
+	// animation_tag:  string,
+	animation_tag:  string,
 }
 
 Entity :: struct {
@@ -163,6 +176,7 @@ EntityNetworkId :: distinct u64
 WORLD_SIZE :: CHUNK_SIZE
 WORLD_TILE_COUNT :: WORLD_SIZE * WORLD_SIZE
 #assert(WORLD_TILE_COUNT < bits.U32_MAX)
+ASSET_PATH :: "../assets/debug/"
 
 GameCtx :: struct {
 	player_count:                u16,
@@ -178,6 +192,7 @@ GameCtx :: struct {
 	keymap:                      [Action]Inputs,
 	players:                     map[PlayerId]Player,
 	network_id_to_handle_client: map[EntityNetworkId]EntityHandle,
+	texture_map:                 [TextureId]ase.Document,
 	pending_player_assignment:   Maybe(EntityNetworkId),
 	steam:                       steam.SteamCtx,
 }
@@ -236,10 +251,11 @@ g_spall_ctx: spall.Context
 PLAYER_ENTITY :: Entity {
 	net = {
 		speed = 500,
-		size = {8, 64},
+		size = {16, 16},
 		flags = {.Controlabe, .Sync, .Alive, .Velocity},
 		friction = math.F32_MAX,
 	},
+	// texture_id = .Player,
 }
 
 @(thread_local)
@@ -331,7 +347,7 @@ game_init_window :: proc() {
 		rl.SetConfigFlags({.FULLSCREEN_MODE, .BORDERLESS_WINDOWED_MODE})
 	}
 
-	rl.SetTraceLogLevel(.ALL)
+	rl.SetTraceLogLevel(.WARNING)
 	rl.InitWindow(0, 0, "CultLtd.")
 	rl.SetTargetFPS(500)
 	rl.SetExitKey(nil)
@@ -366,7 +382,7 @@ game_init :: proc() {
 		)
 
 		temp := vmem.arena_temp_begin(&g_arena)
-		ase.genereate_png_from_ase("aseprite", "./assets/", allocator)
+		ase_cli.genereate_png_from_ase("aseprite", "./assets/", allocator)
 		vmem.arena_temp_end(temp)
 	}
 
@@ -411,9 +427,10 @@ game_init :: proc() {
 	rl.SetWindowSize(i32(g_game_ctx.render_size.x), i32(g_game_ctx.render_size.y))
 	rl.SetWindowMonitor(monitor_id)
 
+
 	g_game_ctx.camera = {
 		offset = g_game_ctx.render_size / 2,
-		zoom   = 1,
+		zoom   = 2,
 	}
 
 	log.debug(g_game_ctx.render_size)
@@ -542,6 +559,11 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 	if .Host in ctx.flags {
 		assert(ctx.player_id != 0)
 		assert(ctx.player_count == 1)
+
+		// data := #load(ASSET_FOLDER + "player.aseprite")
+		// err := ase.unmarshal(&ctx.texture_map[.Player], data)
+		// assert(err != nil)
+
 		entity := PLAYER_ENTITY
 		ctx.players[ctx.player_id] = {
 			entity = entity_add_sync_server(ctx, entity),

@@ -6,7 +6,7 @@ import rl "vendor:raylib"
 
 import "../steam"
 
-GHOST_COLOR :: rl.Color{0x93, 0x8a, 0xa9, 0xA0}
+GHOST_COLOR :: rl.Color{0x93, 0x8a, 0xa9, 0xF0}
 
 draw :: proc(ctx: ^GameCtx, delta_time: f32) {
 	switch ctx.scene {
@@ -61,7 +61,6 @@ draw :: proc(ctx: ^GameCtx, delta_time: f32) {
 			rl.DARKGRAY,
 		)
 	}
-
 }
 
 TILE_SIZE :: 32
@@ -105,7 +104,9 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 				1,
 				rl.BLACK,
 			)
-			if entity.texture_id == 0 {
+			// ctx.texture_map[.Player].arena
+
+			if entity.texture_id == .None {
 				rl.DrawRectanglePro(
 					rl.Rectangle {
 						entity.position.x,

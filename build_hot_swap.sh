@@ -62,7 +62,7 @@ case $(uname) in
 esac
 
 build_dll() {
-    echo "Building game$DLL_EXT"
+    echo "---------- Building game$DLL_EXT ----------"
     odin build "$GAME_PATH" \
         -extra-linker-flags:"$EXTRA_LINKER_FLAGS" \
         -define:RAYLIB_SHARED=true -define:PLATFORM=1 \
@@ -87,7 +87,8 @@ if pgrep -f "$EXE" > /dev/null; then
     exit 0
 fi
 
-echo "Building $EXE"
+echo "---------- Building $EXE ----------"
+
 odin build ./main_hot_reload -out:"$EXE" -debug "${STRICT_ARGS[@]}" "${ODIN_ARGS[@]}"
 
 if [ "$MODE" = "run" ]; then
@@ -98,12 +99,10 @@ fi
 trap "pkill -P $$ || true" EXIT
 
 if [ "$MODE" = "watch" ]; then
-    echo "Running $EXE"
     ./$EXE &
 
-    while inotifywait -r "$GAME_PATH"/*; do
-        if build_dll ; then
-            echo "Building game$DLL_EXT"
+    while inotifywait "$GAME_PATH" -rq -e modify  ; do
+        if build_dll; then
             mv "$OUT_DIR/game_tmp$DLL_EXT" "$OUT_DIR/game$DLL_EXT"
         else
             echo "Build failed. Keeping previous hot-reload DLL; watching for next change..."
