@@ -40,11 +40,6 @@ TextureId :: enum u64 {
 	Player,
 }
 
-@(rodata)
-TextureData := [TextureId][]byte {
-	.None   = {},
-	.Player = #load("../debug_assets/player.png"),
-}
 
 EntityHandle :: struct {
 	id:         u64,
@@ -67,6 +62,7 @@ EntitySyncData :: struct {
 	velocity:       Vec2,
 	size:           Vec2,
 	network_id:     EntityNetworkId,
+	texture_id:     TextureId,
 	ttl:            Seconds,
 	// animation_tag:  string,
 	animation_tag:  string,
@@ -74,7 +70,7 @@ EntitySyncData :: struct {
 
 Entity :: struct {
 	generation:        u64,
-	texture_id:        TextureId,
+	texture:           rl.Texture,
 	using net:         EntitySyncData,
 	NextFreeEntityIdx: Maybe(u64),
 }
@@ -156,15 +152,6 @@ WorldTile :: struct {
 	using pos: Vec2,
 }
 
-RenderCtx :: struct {
-	scene:         Scenes,
-	render_size:   Vec2,
-	camera:        rl.Camera2D,
-	textures:      [dynamic]rl.Texture2D,
-	chunk:         [CHUNK_SIZE * CHUNK_SIZE]WorldTile,
-	world_texture: rl.Texture2D,
-}
-
 Inputs :: union #no_nil {
 	rl.KeyboardKey,
 	rl.MouseButton,
@@ -187,14 +174,21 @@ GameCtx :: struct {
 	flags:                       CultCtxFlags,
 	player_id:                   PlayerId,
 	network_next_id_server:      EntityNetworkId,
-	using render_ctx:            RenderCtx,
 	entities:                    EntityList,
 	keymap:                      [Action]Inputs,
 	players:                     map[PlayerId]Player,
 	network_id_to_handle_client: map[EntityNetworkId]EntityHandle,
-	texture_map:                 [TextureId]ase.Document,
+	// @(rodata)
 	pending_player_assignment:   Maybe(EntityNetworkId),
 	steam:                       steam.SteamCtx,
+	scene:                       Scenes,
+	render_size:                 Vec2,
+	window_size:                 Vec2,
+	camera:                      rl.Camera2D,
+	textures:                    [TextureId]rl.Texture,
+	world_texture:               rl.Texture2D,
+	render_texture:              rl.RenderTexture2D,
+	chunk:                       [CHUNK_SIZE * CHUNK_SIZE]WorldTile,
 }
 
 NetworkDataType :: enum u8 {
@@ -236,6 +230,17 @@ Platform :: enum u8 {
 	// HEADLESS
 }
 
+PLAYER_ENTITY :: Entity {
+	net = {
+		speed = 500,
+		size = {16, 16},
+		flags = {.Controlabe, .Sync, .Alive, .Velocity},
+		friction = math.F32_MAX,
+		texture_id = .Player,
+	},
+	// texture_id = .Player,
+}
+
 PLATFORM :: Platform(#config(PLATFORM, Platform.NONE))
 
 LOGIC_TICK_RATE :: 1.0 / 60
@@ -248,15 +253,6 @@ g_ctx: runtime.Context
 g_arena: vmem.Arena
 g_spall_ctx: spall.Context
 
-PLAYER_ENTITY :: Entity {
-	net = {
-		speed = 500,
-		size = {16, 16},
-		flags = {.Controlabe, .Sync, .Alive, .Velocity},
-		friction = math.F32_MAX,
-	},
-	// texture_id = .Player,
-}
 
 @(thread_local)
 spall_buffer: spall.Buffer
@@ -351,12 +347,16 @@ game_init_window :: proc() {
 	rl.InitWindow(0, 0, "CultLtd.")
 	rl.SetTargetFPS(500)
 	rl.SetExitKey(nil)
+
 }
+
+ASSERT_DIR :: "debug_assets"
+RENDER_WIDTH :: 320
+RENDER_HEIGHT :: 180
 
 @(export)
 game_init :: proc() {
 	rl.SetTraceLogCallback(rl_trace_to_log)
-	rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), 30)
 	arena_err := vmem.arena_init_growing(&g_arena)
 	ensure(arena_err == nil)
 	allocator := vmem.arena_allocator(&g_arena)
@@ -405,32 +405,23 @@ game_init :: proc() {
 			.PrimaryAction = rl.MouseButton.LEFT,
 			.SecondaryAction = rl.MouseButton.RIGHT,
 		},
+		textures = {.None = {}, .Player = rl.LoadTexture(ASSERT_DIR + "/player.png")},
+		render_texture = rl.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT),
+		render_size = {RENDER_WIDTH, RENDER_HEIGHT},
+		window_size = Vec2{RENDER_WIDTH, RENDER_HEIGHT} * 3,
 	}
+	rl.SetTextureFilter(g_game_ctx.render_texture.texture, .POINT)
 
 	{ 	//TODO(abdul): init Texture
 		// g_game_ctx.textures = make([dynamic]rl.Texture2D, 0, 100, allocator)
 	}
 
-	monitor_id: i32
-	monitor_count := rl.GetMonitorCount()
-	g_game_ctx.render_size.y = f32(rl.GetMonitorHeight(0))
-	for i in 0 ..< monitor_count {
-		new_height := f32(rl.GetMonitorHeight(i))
-		if g_game_ctx.render_size.y < new_height {
-			monitor_id = i
-			g_game_ctx.render_size.y = new_height
-		}
-	}
-
-	g_game_ctx.render_size.x = f32(rl.GetMonitorWidth(monitor_id))
-	g_game_ctx.render_size /= f32(2)
-	rl.SetWindowSize(i32(g_game_ctx.render_size.x), i32(g_game_ctx.render_size.y))
-	rl.SetWindowMonitor(monitor_id)
+	rl.SetWindowSize(i32(g_game_ctx.window_size.x), i32(g_game_ctx.window_size.y))
 
 
 	g_game_ctx.camera = {
 		offset = g_game_ctx.render_size / 2,
-		zoom   = 2,
+		zoom   = 1,
 	}
 
 	log.debug(g_game_ctx.render_size)
@@ -461,13 +452,51 @@ game_update :: proc() {
 	}
 
 	{ 	// Render
-		rl.BeginDrawing()
-		rl.ClearBackground(rl.WHITE)
-		defer rl.EndDrawing()
+		g_game_ctx.window_size = {f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight())}
+		scale := min(
+			g_game_ctx.window_size.x / RENDER_WIDTH,
+			g_game_ctx.window_size.y / RENDER_HEIGHT,
+		)
 
-		draw(&g_game_ctx, delta_time)
+		{ 	// Render to Texture
+			rl.BeginTextureMode(g_game_ctx.render_texture)
+			defer rl.EndTextureMode()
+			rl.ClearBackground(rl.WHITE) // Clear screen background
+			draw(&g_game_ctx, delta_time)
+		}
 
-		rl.DrawFPS(0, 0)
+		{ 	// draw render texture
+			rl.BeginDrawing()
+			rl.ClearBackground(rl.BLACK) // Clear screen background
+			defer rl.EndDrawing()
+
+			// Draw render texture to screen, properly scaled
+			texture := g_game_ctx.render_texture.texture
+			render_rect := rl.Rectangle {
+				(f32(g_game_ctx.window_size.x) - (f32(RENDER_WIDTH) * scale)) * .5,
+				(f32(g_game_ctx.window_size.y) - (f32(RENDER_HEIGHT) * scale)) * .5,
+				f32(RENDER_WIDTH) * scale,
+				f32(RENDER_HEIGHT) * scale,
+			}
+			rl.DrawTexturePro(
+				texture,
+				{0, 0, f32(texture.width), f32(-texture.height)},
+				render_rect,
+				0,
+				0,
+				rl.WHITE,
+			)
+
+			rl.DrawFPS(0, 0)
+			rl.GuiSetStyle(
+				.DEFAULT,
+				i32(rl.GuiDefaultProperty.TEXT_SIZE),
+				i32(math.floor(10 * scale)),
+			)
+			draw_ui(&g_game_ctx, render_rect, scale, delta_time)
+		}
+
+
 	}
 	spall.SCOPED_EVENT(&g_spall_ctx, &spall_buffer, #procedure)
 }
@@ -481,6 +510,7 @@ game_should_run :: proc() -> bool {
 game_shutdown :: proc() {
 	rl.SetTraceLogCallback(nil)
 	rl.UnloadTexture(g_game_ctx.world_texture)
+	rl.UnloadRenderTexture(g_game_ctx.render_texture)
 
 	{ 	// Profiler
 		spall.buffer_destroy(&g_spall_ctx, &spall_buffer)
@@ -513,8 +543,6 @@ game_memory_size :: proc() -> int {
 @(export)
 game_hot_reloaded :: proc(memory: rawptr) {
 	g_game_ctx = (^GameCtx)(memory)^
-
-	rl.GuiSetStyle(.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), 30)
 }
 
 @(export)
