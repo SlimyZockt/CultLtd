@@ -37,6 +37,7 @@ EntityFlags :: bit_set[EntityFlagBits;u32]
 TextureId :: enum u64 {
 	None = 0,
 	Player,
+	Bullet,
 }
 
 
@@ -386,6 +387,7 @@ game_init :: proc() {
 		ase_cli.genereate_png_from_ase("aseprite", "./assets/", allocator)
 		vmem.arena_temp_end(temp)
 	}
+	// rl.ShowCursor()
 
 	context = g_ctx
 
@@ -406,7 +408,11 @@ game_init :: proc() {
 			.PrimaryAction = rl.MouseButton.LEFT,
 			.SecondaryAction = rl.MouseButton.RIGHT,
 		},
-		textures = {.None = {}, .Player = rl.LoadTexture(ASSERT_DIR + "/player.png")},
+		textures = {
+			.None = {},
+			.Player = rl.LoadTexture(ASSERT_DIR + "/player.png"),
+			.Bullet = {},
+		},
 		render_texture = rl.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT),
 		window_size = Vec2{RENDER_WIDTH, RENDER_HEIGHT} * 3,
 	}
@@ -435,6 +441,7 @@ game_update :: proc() {
 	g_game_ctx.elapsed_logic_time += delta_time
 	g_game_ctx.elapsed_net_time += delta_time
 
+
 	g_game_ctx.window_size = {f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight())}
 	g_game_ctx.render_scale = min(
 		g_game_ctx.window_size.x / RENDER_WIDTH,
@@ -462,7 +469,6 @@ game_update :: proc() {
 	}
 
 	{ 	// Render
-
 		{ 	// Render to Texture
 			rl.BeginTextureMode(g_game_ctx.render_texture)
 			defer rl.EndTextureMode()
@@ -494,8 +500,6 @@ game_update :: proc() {
 			draw_ui(&g_game_ctx, delta_time)
 			rl.DrawFPS(0, 0)
 		}
-
-
 	}
 	spall.SCOPED_EVENT(&g_spall_ctx, &spall_buffer, #procedure)
 }
@@ -780,7 +784,6 @@ entity_add :: proc(entities: ^EntityList, entity: Entity) -> EntityHandle {
 		return EntityHandle{idx, generation}
 	}
 
-
 	assert(entity.generation == 0)
 	assert(entity.NextFreeEntityIdx == nil)
 	xar.append(&entities.list, entity)
@@ -818,7 +821,7 @@ entity_delete :: proc(entities: ^EntityList, entity_handle: EntityHandle) {
 	}
 	entities.FreeEntityIdx = entity_handle.id
 
-	log.infof("%v was deleted", entity_handle)
+	// log.infof("%v was deleted", entity_handle)
 }
 
 

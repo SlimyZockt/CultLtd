@@ -248,7 +248,10 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 					0,
 					rl.WHITE,
 				)
-				animation_frame = (animation_frame + 1) % 4
+			// animation_frame = (animation_frame + 1) % 4
+			case .Bullet:
+			// rl.DrawLineEx(entity.position, entity.velocity, 1, rl.BLACK)
+
 			}
 
 			cstr := fmt.ctprintf("%v:%v", i, entity.generation)
