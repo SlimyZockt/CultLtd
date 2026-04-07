@@ -23,36 +23,14 @@ update_logic :: proc(ctx: ^GameCtx, delta_time: f32) {
 			dir := linalg.normalize(input)
 			player_entity.velocity = dir * player_entity.speed
 		}
-
-		if .PrimaryAction in player.input_pressed { 	// Shooting
-			defer player.input_pressed -= {.PrimaryAction}
-			diff := player.mouse_position_world - player_entity.position
-			angle := math.atan2(diff.y, diff.x)
-			direction := Vec2{math.cos(angle), math.sin(angle)}
-			entity_add_sync_server(
-				ctx,
-				Entity {
-					size = {4, 4},
-					speed = 300,
-					position = player_entity.position,
-					velocity = direction * 600 + player_entity.velocity,
-					friction = 100,
-					angle = angle,
-					ttl = 1.5,
-					direction = direction,
-					flags = {.Sync, .Velocity, .Alive, .TTL, .DestroyOnVelocityStop},
-				},
-			)
-		}
-
 		if .Dash in player.input_pressed {
 			defer player.input_pressed -= {.Dash}
 			player_entity.velocity = {200, 200} * input
 		}
 	}
 
-	entity_iter := xar.iterator(&ctx.entities.list)
-	for entity, i in xar.iterate_by_ptr(&entity_iter) {
+
+	for iter := xar.iterator(&ctx.entities.list); entity, i in xar.iterate_by_ptr(&iter) {
 		if .Alive not_in entity.flags do continue
 		if .Velocity in entity.flags {
 			if entity.velocity != {0, 0} {
@@ -79,6 +57,35 @@ update_logic :: proc(ctx: ^GameCtx, delta_time: f32) {
 				entity_delete_sync_server(ctx, EntityHandle{u64(i), entity.generation})
 			}
 			entity.ttl -= Seconds(delta_time)
+		}
+	}
+
+	for _, &player in ctx.players {
+		player_entity, _ := entity_get(&ctx.entities, player.entity)
+		if .PrimaryAction in player.input_pressed { 	// Shooting
+			BULLET_SIZE :: 8
+			defer player.input_pressed -= {.PrimaryAction}
+
+			player_pos := player_entity.position + player_entity.size / 2 - BULLET_SIZE / 2
+			target_pos := (player.mouse_position_world) - (BULLET_SIZE / 2)
+			diff := target_pos - player_pos
+			angle := math.atan2(diff.y, diff.x)
+			direction := Vec2{math.cos(angle), math.sin(angle)}
+			entity_add_sync_server(
+				ctx,
+				Entity { 	// BULLET_ENTITY
+					size      = BULLET_SIZE,
+					speed     = 300,
+					position  = player_pos,
+					// position  = target_pos,
+					velocity  = direction * 60,
+					friction  = 100,
+					angle     = angle,
+					ttl       = 1.5,
+					direction = direction,
+					flags     = {.Sync, .Velocity, .Alive, .TTL, .DestroyOnVelocityStop},
+				},
+			)
 		}
 	}
 }

@@ -21,8 +21,6 @@ import stbsp "vendor:stb/sprintf"
 
 import ase_cli "../aseprite"
 import "../steam"
-import ase "../vendor/odin-aseprite/"
-import utils "../vendor/odin-aseprite/utils/"
 
 EntityFlagBits :: enum u32 {
 	Controlabe,
@@ -33,6 +31,7 @@ EntityFlagBits :: enum u32 {
 	Velocity,
 	TTL,
 }
+
 EntityFlags :: bit_set[EntityFlagBits;u32]
 
 TextureId :: enum u64 {
@@ -115,10 +114,11 @@ Seconds :: distinct f32
 PlayerId :: distinct u64
 
 PlayerSyncData :: struct {
-	input_down:            ActionsDown,
-	input_pressed:         ActionsPressed,
-	mouse_position_screen: Vec2,
-	mouse_position_world:  Vec2,
+	input_down:                    ActionsDown,
+	input_pressed:                 ActionsPressed,
+	mouse_screen_position:         Vec2,
+	mouse_virtual_screen_position: Vec2,
+	mouse_position_world:          Vec2,
 }
 
 Player :: struct {
@@ -182,7 +182,8 @@ GameCtx :: struct {
 	pending_player_assignment:   Maybe(EntityNetworkId),
 	steam:                       steam.SteamCtx,
 	scene:                       Scenes,
-	render_size:                 Vec2,
+	render_rect:                 rl.Rectangle,
+	render_scale:                f32,
 	window_size:                 Vec2,
 	camera:                      rl.Camera2D,
 	textures:                    [TextureId]rl.Texture,
@@ -232,7 +233,7 @@ Platform :: enum u8 {
 
 PLAYER_ENTITY :: Entity {
 	net = {
-		speed = 500,
+		speed = 300,
 		size = {16, 16},
 		flags = {.Controlabe, .Sync, .Alive, .Velocity},
 		friction = math.F32_MAX,
@@ -345,7 +346,7 @@ game_init_window :: proc() {
 
 	rl.SetTraceLogLevel(.WARNING)
 	rl.InitWindow(0, 0, "CultLtd.")
-	rl.SetTargetFPS(500)
+	rl.SetTargetFPS(60)
 	rl.SetExitKey(nil)
 
 }
@@ -407,7 +408,6 @@ game_init :: proc() {
 		},
 		textures = {.None = {}, .Player = rl.LoadTexture(ASSERT_DIR + "/player.png")},
 		render_texture = rl.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT),
-		render_size = {RENDER_WIDTH, RENDER_HEIGHT},
 		window_size = Vec2{RENDER_WIDTH, RENDER_HEIGHT} * 3,
 	}
 	rl.SetTextureFilter(g_game_ctx.render_texture.texture, .POINT)
@@ -420,11 +420,9 @@ game_init :: proc() {
 
 
 	g_game_ctx.camera = {
-		offset = g_game_ctx.render_size / 2,
+		offset = Vec2{RENDER_WIDTH, RENDER_HEIGHT} / 2,
 		zoom   = 1,
 	}
-
-	log.debug(g_game_ctx.render_size)
 
 	when PLATFORM == .STEAM {
 		steam.init(&g_game_ctx.steam)
@@ -436,6 +434,18 @@ game_update :: proc() {
 	delta_time := rl.GetFrameTime()
 	g_game_ctx.elapsed_logic_time += delta_time
 	g_game_ctx.elapsed_net_time += delta_time
+
+	g_game_ctx.window_size = {f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight())}
+	g_game_ctx.render_scale = min(
+		g_game_ctx.window_size.x / RENDER_WIDTH,
+		g_game_ctx.window_size.y / RENDER_HEIGHT,
+	)
+	g_game_ctx.render_rect = rl.Rectangle {
+		(f32(g_game_ctx.window_size.x) - (f32(RENDER_WIDTH) * g_game_ctx.render_scale)) * .5,
+		(f32(g_game_ctx.window_size.y) - (f32(RENDER_HEIGHT) * g_game_ctx.render_scale)) * .5,
+		f32(RENDER_WIDTH) * g_game_ctx.render_scale,
+		f32(RENDER_HEIGHT) * g_game_ctx.render_scale,
+	}
 
 	update_input(&g_game_ctx, LOGIC_TICK_RATE)
 
@@ -452,11 +462,6 @@ game_update :: proc() {
 	}
 
 	{ 	// Render
-		g_game_ctx.window_size = {f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight())}
-		scale := min(
-			g_game_ctx.window_size.x / RENDER_WIDTH,
-			g_game_ctx.window_size.y / RENDER_HEIGHT,
-		)
 
 		{ 	// Render to Texture
 			rl.BeginTextureMode(g_game_ctx.render_texture)
@@ -472,28 +477,22 @@ game_update :: proc() {
 
 			// Draw render texture to screen, properly scaled
 			texture := g_game_ctx.render_texture.texture
-			render_rect := rl.Rectangle {
-				(f32(g_game_ctx.window_size.x) - (f32(RENDER_WIDTH) * scale)) * .5,
-				(f32(g_game_ctx.window_size.y) - (f32(RENDER_HEIGHT) * scale)) * .5,
-				f32(RENDER_WIDTH) * scale,
-				f32(RENDER_HEIGHT) * scale,
-			}
 			rl.DrawTexturePro(
 				texture,
 				{0, 0, f32(texture.width), f32(-texture.height)},
-				render_rect,
+				g_game_ctx.render_rect,
 				0,
 				0,
 				rl.WHITE,
 			)
 
-			rl.DrawFPS(0, 0)
 			rl.GuiSetStyle(
 				.DEFAULT,
 				i32(rl.GuiDefaultProperty.TEXT_SIZE),
-				i32(math.floor(10 * scale)),
+				i32(math.floor(10 * g_game_ctx.render_scale)),
 			)
-			draw_ui(&g_game_ctx, render_rect, scale, delta_time)
+			draw_ui(&g_game_ctx, delta_time)
+			rl.DrawFPS(0, 0)
 		}
 
 
@@ -740,6 +739,7 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 				}
 
 				rl.ImageDrawPixel(&img, i32(world_x), i32(world_y), rl_color)
+				// rl.ImageDrawRectangleLines(&img, i32(world_x), i32(world_y))
 			}
 		}
 
@@ -756,7 +756,6 @@ game_exit :: proc(ctx: ^GameCtx, allocator := context.allocator) {
 	vmem.arena_destroy(&g_arena)
 	vmem.arena_destroy(&ctx.entities.arena)
 }
-
 
 entity_add_sync_server :: proc(ctx: ^GameCtx, entity: Entity) -> EntityHandle {
 	entity := entity
@@ -819,7 +818,7 @@ entity_delete :: proc(entities: ^EntityList, entity_handle: EntityHandle) {
 	}
 	entities.FreeEntityIdx = entity_handle.id
 
-	log.infof("Entity %v deleted", entity_handle)
+	log.infof("%v was deleted", entity_handle)
 }
 
 

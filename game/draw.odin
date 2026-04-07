@@ -3,13 +3,14 @@ package game
 import "core:container/xar"
 import "core:fmt"
 import "core:log"
+import "core:math/linalg"
 import rl "vendor:raylib"
 
 import "../steam"
 
-GHOST_COLOR :: rl.Color{0x93, 0x8a, 0xa9, 0xF0}
+GHOST_COLOR :: Color{0xFF, 0, 0xFF, 0xA0}
 
-draw_ui :: proc(ctx: ^GameCtx, render_rect: rl.Rectangle, render_scale: f32, delta_time: f32) {
+draw_ui :: proc(ctx: ^GameCtx, delta_time: f32) {
 	switch ctx.scene {
 	case .Loading:
 		default_font := rl.GetFontDefault()
@@ -17,8 +18,8 @@ draw_ui :: proc(ctx: ^GameCtx, render_rect: rl.Rectangle, render_scale: f32, del
 			default_font,
 			"Loading",
 			Vec2 {
-				render_rect.x + (render_rect.width / 2),
-				render_rect.y + (render_rect.height / 8),
+				ctx.render_rect.x + (ctx.render_rect.width / 2),
+				ctx.render_rect.y + (ctx.render_rect.height / 8),
 			},
 			Vec2{},
 			0,
@@ -30,19 +31,19 @@ draw_ui :: proc(ctx: ^GameCtx, render_rect: rl.Rectangle, render_scale: f32, del
 		{ 	// draw UI
 			GUI_TILE_SIZE :: 17
 			rl.DrawRectangle(
-				i32(render_rect.x),
-				i32(render_rect.y),
-				i32(GUI_TILE_SIZE * (9) * render_scale),
-				i32(GUI_TILE_SIZE * (1) * render_scale),
+				i32(ctx.render_rect.x),
+				i32(ctx.render_rect.y),
+				i32(GUI_TILE_SIZE * (9) * ctx.render_scale),
+				i32(GUI_TILE_SIZE * (1) * ctx.render_scale),
 				rl.GRAY,
 			)
 
 			for i in 0 ..< 9 {
-				tile_size := GUI_TILE_SIZE * render_scale
+				tile_size := GUI_TILE_SIZE * ctx.render_scale
 				rl.DrawRectangleLinesEx(
 					{
-						f32(render_rect.x) + (f32(i) * tile_size),
-						f32(render_rect.y),
+						f32(ctx.render_rect.x) + (f32(i) * tile_size),
+						f32(ctx.render_rect.y),
 						tile_size,
 						tile_size,
 					},
@@ -53,15 +54,15 @@ draw_ui :: proc(ctx: ^GameCtx, render_rect: rl.Rectangle, render_scale: f32, del
 
 
 			MINIMAP_ZOOM_FACTOR :: 4
-			minimap_size := (WORLD_SIZE / MINIMAP_ZOOM_FACTOR) * render_scale
+			minimap_size := (WORLD_SIZE / MINIMAP_ZOOM_FACTOR) * ctx.render_scale
 
 			// rl.DrawPixel()
 			rl.DrawTexturePro(
 				ctx.world_texture,
 				rl.Rectangle{0, 0, WORLD_SIZE, WORLD_SIZE},
 				rl.Rectangle {
-					render_rect.width - minimap_size,
-					render_rect.y,
+					ctx.render_rect.width - minimap_size,
+					ctx.render_rect.y,
 					minimap_size,
 					minimap_size,
 				},
@@ -70,28 +71,52 @@ draw_ui :: proc(ctx: ^GameCtx, render_rect: rl.Rectangle, render_scale: f32, del
 				rl.WHITE,
 			)
 			rl.DrawRectangleLinesEx(
-				{render_rect.width - minimap_size, render_rect.y, minimap_size, minimap_size},
+				{
+					ctx.render_rect.width - minimap_size,
+					ctx.render_rect.y,
+					minimap_size,
+					minimap_size,
+				},
 				1,
 				rl.BLACK,
 			)
 
-			minimap_player_size := 2 * i32(render_scale)
+			minimap_player_size := 2 * i32(ctx.render_scale)
 			minimap_player_offset := (minimap_player_size / 2)
-			minimap_player_scale := render_scale / (TILE_SIZE * MINIMAP_ZOOM_FACTOR)
+			minimap_player_scale := ctx.render_scale / (TILE_SIZE * MINIMAP_ZOOM_FACTOR)
 
 			for _, p in ctx.players {
 				player_entity, _ := entity_get(&ctx.entities, p.entity)
 				rl.DrawRectangle(
-					i32(render_rect.width - minimap_size) -
+					i32(ctx.render_rect.width - minimap_size) -
 					minimap_player_offset +
 					i32(player_entity.x * minimap_player_scale),
-					i32(render_rect.y) -
+					i32(ctx.render_rect.y) -
 					minimap_player_offset +
 					i32(player_entity.y * minimap_player_scale),
 					minimap_player_size,
 					minimap_player_size,
 					rl.PINK,
 				)
+
+				if false {
+					default_font := rl.GetFontDefault()
+					cstr := fmt.ctprintf(
+						"%v(%v)",
+						linalg.round(p.mouse_virtual_screen_position * 10) / 10,
+						linalg.round(p.mouse_position_world * 10) / 10,
+					)
+					rl.DrawTextPro(
+						default_font,
+						cstr,
+						{p.mouse_screen_position.x, p.mouse_screen_position.y - 10},
+						0,
+						0,
+						10,
+						1,
+						rl.BLACK,
+					)
+				}
 			}
 
 		}
@@ -112,16 +137,32 @@ draw_ui :: proc(ctx: ^GameCtx, render_rect: rl.Rectangle, render_scale: f32, del
 			}
 		}
 
-		if rl.GuiButton(get_btn_rect(0, render_rect, render_scale), "Play") {
+		if rl.GuiButton(get_btn_rect(0, ctx.render_rect, ctx.render_scale), "Play") {
 			ctx.max_player_count = 1
 			game_enter(ctx, &g_arena)
 		}
 
 		when PLATFORM == .STEAM {
-			if rl.GuiButton(get_btn_rect(1, render_rect, render_scale), "Host") {
+			if rl.GuiButton(get_btn_rect(1, ctx.render_rect, ctx.render_scale), "Host") {
 				steam.create_lobby(&ctx.steam)
 			}
 		}
+	}
+
+
+	if .DebugCross in ctx.flags {
+		rl.DrawLineEx(
+			{0, RENDER_HEIGHT / 2},
+			{RENDER_WIDTH, RENDER_HEIGHT / 2},
+			2,
+			{80, 80, 80, 0x90},
+		)
+		rl.DrawLineEx(
+			{RENDER_WIDTH / 2, 0},
+			{RENDER_WIDTH / 2, RENDER_HEIGHT},
+			2,
+			{80, 80, 80, 0x90},
+		)
 	}
 }
 
@@ -133,23 +174,6 @@ draw :: proc(ctx: ^GameCtx, delta_time: f32) {
 	case .MainMenu:
 	}
 
-	if .DebugCross in ctx.flags {
-		rl.DrawLine(
-			0,
-			i32(ctx.render_size.y) / 2,
-			i32(ctx.render_size.x),
-			i32(ctx.render_size.y) / 2,
-			rl.DARKGRAY,
-		)
-
-		rl.DrawLine(
-			i32(ctx.render_size.x) / 2,
-			0,
-			i32(ctx.render_size.x) / 2,
-			i32(ctx.render_size.y),
-			rl.DARKGRAY,
-		)
-	}
 }
 
 TILE_SIZE :: 32
@@ -161,11 +185,12 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 			ctx.camera.target = entity.position + (entity.size / 2)
 		}
 	}
+	default_font := rl.GetFontDefault()
+
 
 	{ 	// Render world
 		rl.BeginMode2D(ctx.camera)
 		defer rl.EndMode2D()
-		default_font := rl.GetFontDefault()
 
 		rl.DrawTexturePro(
 			ctx.world_texture,
@@ -181,19 +206,6 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 		entity_iter := xar.iterator(&ctx.entities.list)
 		for entity, i in xar.iterate_by_ptr(&entity_iter) {
 			if .Alive not_in entity.flags do continue
-			cstr := fmt.ctprintf("%v:%v", i, entity.generation)
-			// log.debug(i, entity.generation)
-			rl.DrawTextPro(
-				default_font,
-				cstr,
-				rl.Vector2{entity.position.x, entity.position.y - entity.size.y},
-				Vec2{},
-				0,
-				32,
-				1,
-				rl.BLACK,
-			)
-			// ctx.texture_map[.Player].arena
 			switch entity.texture_id {
 			case .None:
 				rl.DrawRectanglePro(
@@ -210,8 +222,8 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 			case .Player:
 				ANIMATION_DATA :: [?]struct {
 					frame_count: i32,
-					time:        i32,
-				}{}
+					durrartion:  i32,
+				}{{4, 500}}
 				@(static) animation_frame := 0
 				animation := 0
 				switch entity.direction {
@@ -229,8 +241,8 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 					rl.Rectangle {
 						entity.position.x,
 						entity.position.y,
-						entity.size.x * 2,
-						entity.size.y * 2,
+						entity.size.x,
+						entity.size.y,
 					},
 					0,
 					0,
@@ -238,6 +250,18 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 				)
 				animation_frame = (animation_frame + 1) % 4
 			}
+
+			cstr := fmt.ctprintf("%v:%v", i, entity.generation)
+			rl.DrawTextPro(
+				default_font,
+				cstr,
+				rl.Vector2{entity.position.x, entity.position.y - 10},
+				Vec2{},
+				0,
+				10,
+				1,
+				rl.BLACK,
+			)
 		}
 	}
 
