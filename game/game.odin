@@ -112,12 +112,20 @@ Actions :: bit_set[Action;u32]
 Seconds :: distinct f32
 PlayerId :: distinct u64
 
+PlayerStateBits :: enum u16 {
+	IsDashing,
+}
+
+PlayerState :: bit_set[PlayerStateBits;u16]
+
 PlayerSyncData :: struct {
+	state:                         PlayerState,
 	input_down:                    Actions,
 	input_pressed:                 Actions,
 	input_toggled:                 Actions,
 	mouse_screen_position:         Vec2,
 	mouse_virtual_screen_position: Vec2,
+
 	// mouse_position_world:          Vec2,
 }
 
@@ -353,7 +361,7 @@ g_game_ctx: GameCtx
 game_init_window :: proc() {
 	g_ctx = context
 	when ODIN_DEBUG {
-		rl.SetConfigFlags({.BORDERLESS_WINDOWED_MODE, .WINDOW_UNDECORATED, .WINDOW_RESIZABLE})
+		rl.SetConfigFlags({.BORDERLESS_WINDOWED_MODE, .WINDOW_UNDECORATED, .WINDOW_MINIMIZED})
 	} else {
 		rl.SetConfigFlags({.FULLSCREEN_MODE, .BORDERLESS_WINDOWED_MODE})
 	}

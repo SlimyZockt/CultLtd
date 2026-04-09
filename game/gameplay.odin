@@ -4,6 +4,7 @@ import "core:container/xar"
 import "core:log"
 import "core:math"
 import "core:math/linalg"
+import "core:math/rand"
 import rl "vendor:raylib"
 
 update_logic :: proc(ctx: ^GameCtx, delta_time: f32) {
@@ -23,35 +24,59 @@ update_logic :: proc(ctx: ^GameCtx, delta_time: f32) {
 		// if input.x != 0 || input.y != 0 {
 		// }
 
+		dir := linalg.normalize(input)
+		player_entity.direction = dir
+		player_entity.flags += {.Moving}
+
+		speed := linalg.length(player_entity.velocity)
+		if .IsDashing in player.state && max(speed, 300) == 300 {
+			player_entity.velocity = 0
+			player_entity.friction = math.F32_MAX
+			player.state -= {.IsDashing}
+			log.debug("undahsing")
+		}
+
 		if input == 0 {
 			player_entity.flags -= {.Moving}
-		} else {
-			dir := linalg.normalize(input)
-			player_entity.direction = dir
+		} else if .IsDashing not_in player.state {
 			player_entity.velocity = dir * player_entity.speed
-			player_entity.flags += {.Moving}
 		}
 
 		if .Dash in player.input_pressed {
-			defer player.input_pressed -= {.Dash}
-			player_entity.velocity += player_entity.speed * 1.5 * input
+			player.input_pressed -= {.Dash}
+			if .IsDashing in player.state {
+				continue
+			}
+			player.state += {.IsDashing}
+			player_entity.velocity = dir * player_entity.speed * 2
+			player_entity.friction = 1000
 
-			entity_add_sync_server(
-				ctx,
-				Entity { 	// BULLET_ENTITY
-					size      = 3,
-					speed     = 300,
-					position  = player_entity.position,
-					velocity  = -player_entity.velocity / 2,
-					friction  = 100,
-					angle     = 0,
-					ttl       = .100,
-					direction = 0,
-					tint      = 0xff,
-					flags     = {.Sync, .Velocity, .Alive, .TTL, .DestroyOnVelocityStop},
-				},
-			)
+			for _ in 0 ..< rand.uint32_range(8, 15) {
+				pos := Vec2 {
+					player_entity.position.x +
+					rand.float32_range(-player_entity.size.x / 2, player_entity.size.x / 2),
+					player_entity.position.y +
+					rand.float32_range(-player_entity.size.y / 2, player_entity.size.y / 2),
+				}
+				entity_add_sync_server(
+					ctx,
+					Entity { 	// "Particles"
+						size      = 3,
+						speed     = 300,
+						position  = pos,
+						velocity  = -player_entity.velocity / 2,
+						friction  = 100,
+						angle     = 0,
+						ttl       = .100,
+						direction = 0,
+						tint      = Color{0xe4, 0x3b, 0x44, 0xF0},
+						flags     = {.Sync, .Velocity, .Alive, .TTL, .DestroyOnVelocityStop},
+					},
+				)
+			}
 		}
+
+
 	}
 
 	for iter := xar.iterator(&ctx.entities.list); entity, i in xar.iterate_by_ptr(&iter) {
