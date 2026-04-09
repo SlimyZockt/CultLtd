@@ -30,6 +30,7 @@ EntityFlagBits :: enum u32 {
 	DestroyOnVelocityStop,
 	Velocity,
 	TTL,
+	Moving,
 }
 
 EntityFlags :: bit_set[EntityFlagBits;u32]
@@ -64,8 +65,6 @@ EntitySyncData :: struct {
 	network_id:     EntityNetworkId,
 	texture_id:     TextureId,
 	ttl:            Seconds,
-	// animation_tag:  string,
-	animation_tag:  string,
 }
 
 Entity :: struct {
@@ -91,7 +90,7 @@ CultCtxFlagBits :: enum u32 {
 CultCtxFlags :: bit_set[CultCtxFlagBits;u32]
 
 Action :: enum u8 {
-	DebugCross,
+	DebugMenu,
 	Up,
 	Down,
 	Left,
@@ -109,23 +108,23 @@ Scenes :: enum u32 {
 	Game     = 2,
 }
 
-ActionsDown :: bit_set[Action;u32]
-ActionsPressed :: bit_set[Action;u32]
+Actions :: bit_set[Action;u32]
 Seconds :: distinct f32
 PlayerId :: distinct u64
 
 PlayerSyncData :: struct {
-	input_down:                    ActionsDown,
-	input_pressed:                 ActionsPressed,
+	input_down:                    Actions,
+	input_pressed:                 Actions,
+	input_toggled:                 Actions,
 	mouse_screen_position:         Vec2,
 	mouse_virtual_screen_position: Vec2,
-	mouse_position_world:          Vec2,
+	// mouse_position_world:          Vec2,
 }
 
 Player :: struct {
 	using network_shared_data: PlayerSyncData,
 	entity:                    EntityHandle,
-	input_pressed_queue:       queue.Queue(ActionsDown),
+	input_pressed_queue:       queue.Queue(Actions),
 	// ZZZ(Abdul)
 }
 
@@ -166,11 +165,23 @@ WORLD_TILE_COUNT :: WORLD_SIZE * WORLD_SIZE
 #assert(WORLD_TILE_COUNT < bits.U32_MAX)
 ASSET_PATH :: "../assets/debug/"
 
+DebugOptionBits :: enum u16 {
+	Cross,
+	LineToMouse,
+	Grid,
+}
+
+DebugOptions :: bit_set[DebugOptionBits;u16]
+
+
 GameCtx :: struct {
 	player_count:                u16,
 	max_player_count:            u16,
+	debug_options:               DebugOptions,
 	elapsed_logic_time:          f32,
 	elapsed_net_time:            f32,
+	// elapsed_time:                f32,
+	current_frame:               u32,
 	seed:                        i64,
 	flags:                       CultCtxFlags,
 	player_id:                   PlayerId,
@@ -397,13 +408,13 @@ game_init :: proc() {
 		player_count = 1,
 		player_id = 0,
 		keymap = {
-			.DebugCross = .F2,
+			.DebugMenu = .F1,
 			.Up = .W,
 			.Down = .S,
 			.Right = .D,
 			.Left = .A,
 			.Interact = .E,
-			.Quit = .F1,
+			.Quit = .F12,
 			.Dash = .LEFT_SHIFT,
 			.PrimaryAction = rl.MouseButton.LEFT,
 			.SecondaryAction = rl.MouseButton.RIGHT,
@@ -440,7 +451,7 @@ game_update :: proc() {
 	delta_time := rl.GetFrameTime()
 	g_game_ctx.elapsed_logic_time += delta_time
 	g_game_ctx.elapsed_net_time += delta_time
-
+	// g_game_ctx.elapsed_time += delta_time
 
 	g_game_ctx.window_size = {f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight())}
 	g_game_ctx.render_scale = min(
@@ -465,7 +476,9 @@ game_update :: proc() {
 
 	for g_game_ctx.elapsed_logic_time >= LOGIC_TICK_RATE {
 		g_game_ctx.elapsed_logic_time -= LOGIC_TICK_RATE
+		// g_game_ctx.current_frame += 1
 		update_logic(&g_game_ctx, LOGIC_TICK_RATE)
+
 	}
 
 	{ 	// Render
@@ -475,6 +488,7 @@ game_update :: proc() {
 			rl.ClearBackground(rl.WHITE) // Clear screen background
 			draw(&g_game_ctx, delta_time)
 		}
+
 
 		{ 	// draw render texture
 			rl.BeginDrawing()

@@ -3,14 +3,21 @@ package game
 import "core:container/xar"
 import "core:fmt"
 import "core:log"
+import "core:math"
 import "core:math/linalg"
+import vmem "core:mem/virtual"
+import "core:reflect"
+import "core:strings"
+import "core:time"
 import rl "vendor:raylib"
 
 import "../steam"
 
 GHOST_COLOR :: Color{0xFF, 0, 0xFF, 0xA0}
+DEBUG_COLOR :: Color{80, 80, 80, 0x90}
 
 draw_ui :: proc(ctx: ^GameCtx, delta_time: f32) {
+	padding := 2 * ctx.render_scale
 	switch ctx.scene {
 	case .Loading:
 		default_font := rl.GetFontDefault()
@@ -28,6 +35,7 @@ draw_ui :: proc(ctx: ^GameCtx, delta_time: f32) {
 			rl.DARKGRAY,
 		)
 	case .Game:
+		top_right := ctx.render_rect.x + ctx.render_rect.width
 		{ 	// draw UI
 			GUI_TILE_SIZE :: 17
 			rl.DrawRectangle(
@@ -52,7 +60,6 @@ draw_ui :: proc(ctx: ^GameCtx, delta_time: f32) {
 				)
 			}
 
-
 			MINIMAP_ZOOM_FACTOR :: 4
 			minimap_size := (WORLD_SIZE / MINIMAP_ZOOM_FACTOR) * ctx.render_scale
 
@@ -61,7 +68,7 @@ draw_ui :: proc(ctx: ^GameCtx, delta_time: f32) {
 				ctx.world_texture,
 				rl.Rectangle{0, 0, WORLD_SIZE, WORLD_SIZE},
 				rl.Rectangle {
-					ctx.render_rect.width - minimap_size,
+					top_right - minimap_size,
 					ctx.render_rect.y,
 					minimap_size,
 					minimap_size,
@@ -81,11 +88,17 @@ draw_ui :: proc(ctx: ^GameCtx, delta_time: f32) {
 				rl.BLACK,
 			)
 
+
 			minimap_player_size := 2 * i32(ctx.render_scale)
 			minimap_player_offset := (minimap_player_size / 2)
 			minimap_player_scale := ctx.render_scale / (TILE_SIZE * MINIMAP_ZOOM_FACTOR)
 
+
 			for _, p in ctx.players {
+				mouse_position_world := rl.GetScreenToWorld2D(
+					p.mouse_virtual_screen_position,
+					ctx.camera,
+				)
 				player_entity, _ := entity_get(&ctx.entities, p.entity)
 				rl.DrawRectangle(
 					i32(ctx.render_rect.width - minimap_size) -
@@ -104,7 +117,7 @@ draw_ui :: proc(ctx: ^GameCtx, delta_time: f32) {
 					cstr := fmt.ctprintf(
 						"%v(%v)",
 						linalg.round(p.mouse_virtual_screen_position * 10) / 10,
-						linalg.round(p.mouse_position_world * 10) / 10,
+						linalg.round(mouse_position_world * 10) / 10,
 					)
 					rl.DrawTextPro(
 						default_font,
@@ -117,6 +130,57 @@ draw_ui :: proc(ctx: ^GameCtx, delta_time: f32) {
 						rl.BLACK,
 					)
 				}
+			}
+
+			local_player, ok := ctx.players[ctx.player_id]
+			assert(ok)
+			// local_player_entity, ok2 := entity_get(&ctx.entities, local_player.entity)
+			//          assert(ok2)
+			if .DebugMenu in local_player.input_toggled {
+				rl.GuiSetStyle(
+					.DEFAULT,
+					i32(rl.GuiDefaultProperty.TEXT_SIZE),
+					i32(math.floor(7 * g_game_ctx.render_scale)),
+				)
+				defer rl.GuiSetStyle(
+					.DEFAULT,
+					i32(rl.GuiDefaultProperty.TEXT_SIZE),
+					i32(math.floor(10 * g_game_ctx.render_scale)),
+				)
+				btn_width := 60 * ctx.render_scale
+				btn_height := 15 * ctx.render_scale
+				top_margin := 10 * ctx.render_scale
+				rl.GuiPanel(
+					{
+						top_right - btn_width,
+						ctx.render_rect.y,
+						btn_width + padding,
+						btn_height * len(DebugOptionBits) + top_margin + padding,
+					},
+					"Debug Menu",
+				)
+
+				alloc := vmem.arena_allocator(&g_arena)
+				temp := vmem.arena_temp_begin(&g_arena)
+				defer vmem.arena_temp_end(temp)
+				for debug_option, i in DebugOptionBits {
+					active := debug_option in ctx.debug_options
+					display_name, _ := reflect.enum_name_from_value(debug_option)
+					rl.GuiToggle(
+						{
+							top_right - btn_width + padding,
+							top_margin + btn_height * f32(i),
+							btn_width - padding * 2,
+							btn_height,
+						},
+						strings.clone_to_cstring(display_name, alloc),
+						&active,
+					)
+					if debug_option in ctx.debug_options != active {
+						ctx.debug_options ~= {debug_option}
+					}
+				}
+				// out := rl.GuiToggle("test 0;test 1;test 2;test 3", &active)
 			}
 
 		}
@@ -150,20 +214,6 @@ draw_ui :: proc(ctx: ^GameCtx, delta_time: f32) {
 	}
 
 
-	if .DebugCross in ctx.flags {
-		rl.DrawLineEx(
-			{0, RENDER_HEIGHT / 2},
-			{RENDER_WIDTH, RENDER_HEIGHT / 2},
-			2,
-			{80, 80, 80, 0x90},
-		)
-		rl.DrawLineEx(
-			{RENDER_WIDTH / 2, 0},
-			{RENDER_WIDTH / 2, RENDER_HEIGHT},
-			2,
-			{80, 80, 80, 0x90},
-		)
-	}
 }
 
 draw :: proc(ctx: ^GameCtx, delta_time: f32) {
@@ -178,13 +228,6 @@ draw :: proc(ctx: ^GameCtx, delta_time: f32) {
 
 TILE_SIZE :: 32
 draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
-	player, ok := ctx.players[ctx.player_id]
-	if ok {
-		entity, _ := entity_get(&ctx.entities, player.entity)
-		if entity != nil && .Alive in entity.flags {
-			ctx.camera.target = entity.position + (entity.size / 2)
-		}
-	}
 	default_font := rl.GetFontDefault()
 
 
@@ -220,22 +263,45 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 					GHOST_COLOR,
 				)
 			case .Player:
-				ANIMATION_DATA :: [?]struct {
-					frame_count: i32,
-					durrartion:  i32,
-				}{{4, 500}}
-				@(static) animation_frame := 0
-				animation := 0
-				switch entity.direction {
+				// FIX: switch to a general animation system
+				@(static) animation_frame: i32 = 0
+				@(static) eleapsed_time: f32 = 0
+				animation: f32 = 0
+				flip_x: f32 = 1
 
+				if entity.direction.x == 0 {
+					switch entity.direction.y {
+					case 1:
+						animation = 2
+					case -1:
+						animation = 4
+					}
+				} else {
+					if entity.direction.x >= 0 { 	// Right
+						animation = 0
+					}
+					if entity.direction.x < 0 { 	// Left
+						animation = 0
+						flip_x = -1
+					}
+				}
+
+				if .Moving in entity.flags {
+					animation += 1
+				}
+
+				eleapsed_time += delta_time
+				if eleapsed_time >= 0.100 {
+					eleapsed_time = 0
+					animation_frame = (animation_frame + 1) % 4
 				}
 
 				rl.DrawTexturePro(
 					ctx.textures[.Player],
 					rl.Rectangle {
-						entity.size.x * f32(animation_frame),
-						entity.size.y * f32(animation_frame),
-						entity.size.x,
+						entity.size.x * (4 * animation + f32(animation_frame)),
+						entity.size.y,
+						entity.size.x * flip_x,
 						entity.size.y,
 					},
 					rl.Rectangle {
@@ -266,6 +332,28 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 				rl.BLACK,
 			)
 		}
+
+		if .LineToMouse in ctx.debug_options {
+			local_player, ok := ctx.players[ctx.player_id]
+			assert(ok)
+			local_player_entity, _ := entity_get(&ctx.entities, local_player.entity)
+			mouse_position_world := rl.GetScreenToWorld2D(
+				local_player.mouse_virtual_screen_position,
+				ctx.camera,
+			)
+			rl.DrawLineEx(
+				local_player_entity.position + local_player_entity.size / 2,
+				mouse_position_world,
+				1,
+				DEBUG_COLOR,
+			)
+		}
+	}
+
+
+	if .Cross in ctx.debug_options {
+		rl.DrawLineEx({0, RENDER_HEIGHT / 2}, {RENDER_WIDTH, RENDER_HEIGHT / 2}, 2, DEBUG_COLOR)
+		rl.DrawLineEx({RENDER_WIDTH / 2, 0}, {RENDER_WIDTH / 2, RENDER_HEIGHT}, 2, DEBUG_COLOR)
 	}
 
 }

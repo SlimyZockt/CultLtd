@@ -1,6 +1,7 @@
 package game
 
 import "../steam"
+import "core:log"
 import "core:math/linalg"
 import rl "vendor:raylib"
 
@@ -22,7 +23,17 @@ is_input_pressed :: proc(keymap: [Action]Inputs, action: Action) -> bool {
 	case rl.MouseButton:
 		return rl.IsMouseButtonPressed(k)
 	}
+	unreachable()
+}
 
+
+is_input_released :: proc(keymap: [Action]Inputs, action: Action) -> bool {
+	switch k in keymap[action] {
+	case rl.KeyboardKey:
+		return rl.IsKeyReleased(k)
+	case rl.MouseButton:
+		return rl.IsMouseButtonReleased(k)
+	}
 	unreachable()
 }
 
@@ -44,16 +55,22 @@ is_input_pressed :: proc(keymap: [Action]Inputs, action: Action) -> bool {
 update_input :: proc(ctx: ^GameCtx, delta_time: f32) {
 	if ctx.scene != .Game do return
 	player := ctx.players[ctx.player_id]
-	input_down := &player.input_down
-	input_pressed := &player.input_pressed
 
 	for action in Action {
-		input_down^ =
-			input_down^ + {action} if is_input_down(ctx.keymap, action) else input_down^ - {action}
-		if is_input_pressed(ctx.keymap, action) {
-			// input_pressed[i] = ACTIONS_PRESSED_BUFFER_TIME
-			input_pressed^ += {action}
+		if is_input_down(ctx.keymap, action) {
+			player.input_down += {action}
+		} else {
+			player.input_down -= {action}
 		}
+		if is_input_pressed(ctx.keymap, action) {
+			player.input_pressed += {action}
+			player.input_toggled ~= {action}
+		}
+
+		// if is_input_released(ctx.keymap, action) {
+		// 	log.debug("released", action)
+		// 	player.input_pressed -= {action}
+		// }
 	}
 
 	player.mouse_screen_position = rl.GetMousePosition()
@@ -66,20 +83,9 @@ update_input :: proc(ctx: ^GameCtx, delta_time: f32) {
 		0,
 		Vec2{RENDER_WIDTH, RENDER_HEIGHT},
 	)
-	player.mouse_position_world = rl.GetScreenToWorld2D(
-		player.mouse_virtual_screen_position,
-		ctx.camera,
-	)
 
 	ctx.players[ctx.player_id] = player
 
-	if is_input_pressed(ctx.keymap, .DebugCross) {
-		if .DebugCross in ctx.flags {
-			ctx.flags -= {.DebugCross}
-		} else {
-			ctx.flags += {.DebugCross}
-		}
-	}
 
 	if is_input_pressed(ctx.keymap, .Quit) {
 		game_exit(ctx)
