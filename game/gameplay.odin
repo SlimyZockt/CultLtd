@@ -34,7 +34,23 @@ update_logic :: proc(ctx: ^GameCtx, delta_time: f32) {
 
 		if .Dash in player.input_pressed {
 			defer player.input_pressed -= {.Dash}
-			player_entity.velocity = player_entity.speed * 2 * input
+			player_entity.velocity += player_entity.speed * 1.5 * input
+
+			entity_add_sync_server(
+				ctx,
+				Entity { 	// BULLET_ENTITY
+					size      = 3,
+					speed     = 300,
+					position  = player_entity.position,
+					velocity  = -player_entity.velocity / 2,
+					friction  = 100,
+					angle     = 0,
+					ttl       = .100,
+					direction = 0,
+					tint      = 0xff,
+					flags     = {.Sync, .Velocity, .Alive, .TTL, .DestroyOnVelocityStop},
+				},
+			)
 		}
 	}
 
@@ -72,7 +88,7 @@ update_logic :: proc(ctx: ^GameCtx, delta_time: f32) {
 	assert(ok)
 	local_player_entity, _ := entity_get(&ctx.entities, local_player.entity)
 	if local_player_entity != nil && .Alive in local_player_entity.flags {
-		ctx.camera.target = local_player_entity.position + (local_player_entity.size / 2)
+		ctx.camera.target = local_player_entity.position
 	}
 
 	for _, &player in ctx.players {
@@ -87,8 +103,8 @@ update_logic :: proc(ctx: ^GameCtx, delta_time: f32) {
 				ctx.camera,
 			)
 
-			player_pos := player_entity.position + player_entity.size / 2 - BULLET_SIZE / 2
-			target_pos := (mouse_position_world) - (BULLET_SIZE / 2)
+			player_pos := player_entity.position
+			target_pos := mouse_position_world
 			diff := target_pos - player_pos
 			angle := math.atan2(diff.y, diff.x)
 			direction := linalg.normalize(diff)
@@ -106,6 +122,7 @@ update_logic :: proc(ctx: ^GameCtx, delta_time: f32) {
 					direction = direction,
 					// texture_id = .Bullet,
 					flags     = {.Sync, .Velocity, .Alive, .TTL, .DestroyOnVelocityStop},
+					tint      = GHOST_COLOR,
 				},
 			)
 		}

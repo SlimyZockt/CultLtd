@@ -137,29 +137,37 @@ draw_ui :: proc(ctx: ^GameCtx, delta_time: f32) {
 			// local_player_entity, ok2 := entity_get(&ctx.entities, local_player.entity)
 			//          assert(ok2)
 			if .DebugMenu in local_player.input_toggled {
-				rl.GuiSetStyle(
-					.DEFAULT,
-					i32(rl.GuiDefaultProperty.TEXT_SIZE),
-					i32(math.floor(7 * g_game_ctx.render_scale)),
-				)
 				defer rl.GuiSetStyle(
 					.DEFAULT,
 					i32(rl.GuiDefaultProperty.TEXT_SIZE),
 					i32(math.floor(10 * g_game_ctx.render_scale)),
 				)
 				btn_width := 60 * ctx.render_scale
-				btn_height := 15 * ctx.render_scale
-				top_margin := 10 * ctx.render_scale
+				btn_height := 11 * ctx.render_scale
+				RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT :: 24 // see raygui.c (https://github.com/raysan5/raygui/blob/master/src/raygui.h#L1648)
+				rl.GuiSetStyle(
+					.DEFAULT,
+					i32(rl.GuiDefaultProperty.TEXT_SIZE),
+					RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT,
+				)
 				rl.GuiPanel(
 					{
 						top_right - btn_width,
 						ctx.render_rect.y,
 						btn_width + padding,
-						btn_height * len(DebugOptionBits) + top_margin + padding,
+						btn_height *
+							len(
+								DebugOptionBits,
+							) + 2 * padding + RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT, // f32(text_size) +
 					},
 					"Debug Menu",
 				)
 
+				rl.GuiSetStyle(
+					.DEFAULT,
+					i32(rl.GuiDefaultProperty.TEXT_SIZE),
+					i32(5 * g_game_ctx.render_scale),
+				)
 				alloc := vmem.arena_allocator(&g_arena)
 				temp := vmem.arena_temp_begin(&g_arena)
 				defer vmem.arena_temp_end(temp)
@@ -169,7 +177,7 @@ draw_ui :: proc(ctx: ^GameCtx, delta_time: f32) {
 					rl.GuiToggle(
 						{
 							top_right - btn_width + padding,
-							top_margin + btn_height * f32(i),
+							ctx.render_rect.y + padding + btn_height * f32(i) + RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT, // f32(text_size) +
 							btn_width - padding * 2,
 							btn_height,
 						},
@@ -180,7 +188,6 @@ draw_ui :: proc(ctx: ^GameCtx, delta_time: f32) {
 						ctx.debug_options ~= {debug_option}
 					}
 				}
-				// out := rl.GuiToggle("test 0;test 1;test 2;test 3", &active)
 			}
 
 		}
@@ -239,7 +246,7 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 			ctx.world_texture,
 			rl.Rectangle{0, 0, WORLD_SIZE, WORLD_SIZE},
 			rl.Rectangle{0, 0, WORLD_SIZE * TILE_SIZE, WORLD_SIZE * TILE_SIZE},
-			Vec2{},
+			0,
 			0,
 			rl.WHITE,
 		)
@@ -258,9 +265,9 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 						entity.size.x,
 						entity.size.y,
 					},
-					Vec2{},
+					entity.size / 2,
 					0,
-					GHOST_COLOR,
+					entity.tint,
 				)
 			case .Player:
 				// FIX: switch to a general animation system
@@ -310,9 +317,9 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 						entity.size.x,
 						entity.size.y,
 					},
+					entity.size / 2,
 					0,
-					0,
-					rl.WHITE,
+					entity.tint,
 				)
 			// animation_frame = (animation_frame + 1) % 4
 			case .Bullet:
@@ -320,17 +327,19 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 
 			}
 
-			cstr := fmt.ctprintf("%v:%v", i, entity.generation)
-			rl.DrawTextPro(
-				default_font,
-				cstr,
-				rl.Vector2{entity.position.x, entity.position.y - 10},
-				Vec2{},
-				0,
-				10,
-				1,
-				rl.BLACK,
-			)
+			if .ShowEntityHandle in ctx.debug_options {
+				cstr := fmt.ctprintf("%v:%v", i, entity.generation)
+				rl.DrawTextPro(
+					default_font,
+					cstr,
+					rl.Vector2{entity.position.x, entity.position.y - 10},
+					entity.size / 2,
+					0,
+					10,
+					1,
+					rl.BLACK,
+				)
+			}
 		}
 
 		if .LineToMouse in ctx.debug_options {
@@ -341,12 +350,7 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 				local_player.mouse_virtual_screen_position,
 				ctx.camera,
 			)
-			rl.DrawLineEx(
-				local_player_entity.position + local_player_entity.size / 2,
-				mouse_position_world,
-				1,
-				DEBUG_COLOR,
-			)
+			rl.DrawLineEx(local_player_entity.position, mouse_position_world, 1, DEBUG_COLOR)
 		}
 	}
 

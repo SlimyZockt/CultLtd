@@ -58,6 +58,7 @@ EntitySyncData :: struct {
 	flags:          EntityFlags,
 	angle:          f32,
 	friction:       f32,
+	tint:           Color,
 	direction:      Vec2,
 	using position: Vec2,
 	velocity:       Vec2,
@@ -81,7 +82,6 @@ EntityList :: struct {
 }
 
 CultCtxFlagBits :: enum u32 {
-	DebugCross,
 	Host,
 	Multiplayer,
 	Client,
@@ -168,6 +168,7 @@ ASSET_PATH :: "../assets/debug/"
 DebugOptionBits :: enum u16 {
 	Cross,
 	LineToMouse,
+	ShowEntityHandle,
 	Grid,
 }
 
@@ -250,6 +251,7 @@ PLAYER_ENTITY :: Entity {
 		flags = {.Controlabe, .Sync, .Alive, .Velocity},
 		friction = math.F32_MAX,
 		texture_id = .Player,
+		tint = 0xff,
 	},
 	// texture_id = .Player,
 }
@@ -351,7 +353,7 @@ g_game_ctx: GameCtx
 game_init_window :: proc() {
 	g_ctx = context
 	when ODIN_DEBUG {
-		rl.SetConfigFlags({.BORDERLESS_WINDOWED_MODE, .WINDOW_UNDECORATED})
+		rl.SetConfigFlags({.BORDERLESS_WINDOWED_MODE, .WINDOW_UNDECORATED, .WINDOW_RESIZABLE})
 	} else {
 		rl.SetConfigFlags({.FULLSCREEN_MODE, .BORDERLESS_WINDOWED_MODE})
 	}
@@ -604,10 +606,6 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 	if .Host in ctx.flags {
 		assert(ctx.player_id != 0)
 		assert(ctx.player_count == 1)
-
-		// data := #load(ASSET_FOLDER + "player.aseprite")
-		// err := ase.unmarshal(&ctx.texture_map[.Player], data)
-		// assert(err != nil)
 
 		entity := PLAYER_ENTITY
 		ctx.players[ctx.player_id] = {
