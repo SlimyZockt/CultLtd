@@ -1,4 +1,4 @@
 [executable]
-path=/home/myt/Documents/CultLtd./game_hot_reload.bin
+path=/home/myt/Documents/CultLtd/build/debug/game_debug.bin
 arguments=
-ask_directory=1
+ask_directory=0

@@ -42,9 +42,25 @@ TextureId :: enum u64 {
 }
 
 
-EntityHandle :: struct {
+Handle :: struct {
 	id:         u64,
 	generation: u64,
+}
+
+EntityHandle :: distinct Handle
+ItemHandle :: distinct Handle
+
+ItemNetData :: struct {
+	grid_position: Vec2,
+	texture_id:    TextureId,
+	quantity:      u16,
+	max_quantity:  u16,
+}
+
+Item :: struct {
+	generation:  u64,
+	ui_position: Vec2,
+	using net:   ItemNetData,
 }
 
 INVALID_PLAYER_ID :: PlayerId(0)
@@ -53,11 +69,12 @@ Vec2 :: [2]f32
 Vec3 :: [3]f32
 Color :: rl.Color
 
-EntitySyncData :: struct {
-	speed:          f32,
+EntityNetData :: struct {
 	flags:          EntityFlags,
-	angle:          f32,
+	speed:          f32,
+	// angle:          f32,
 	friction:       f32,
+	ttl_in_s:       f32,
 	tint:           Color,
 	direction:      Vec2,
 	using position: Vec2,
@@ -65,13 +82,12 @@ EntitySyncData :: struct {
 	size:           Vec2,
 	network_id:     EntityNetworkId,
 	texture_id:     TextureId,
-	ttl:            Seconds,
 }
 
 Entity :: struct {
 	generation:        u64,
 	texture:           rl.Texture,
-	using net:         EntitySyncData,
+	using net:         EntityNetData,
 	NextFreeEntityIdx: Maybe(u64),
 }
 
@@ -117,6 +133,11 @@ PlayerStateBits :: enum u16 {
 }
 
 PlayerState :: bit_set[PlayerStateBits;u16]
+CombatMode :: enum u16 {
+	Shmup,
+	Runes,
+	Cast,
+}
 
 PlayerSyncData :: struct {
 	state:                         PlayerState,
@@ -125,6 +146,8 @@ PlayerSyncData :: struct {
 	input_toggled:                 Actions,
 	mouse_screen_position:         Vec2,
 	mouse_virtual_screen_position: Vec2,
+	hold_item:                     ItemHandle,
+	combat_mode:                   CombatMode,
 
 	// mouse_position_world:          Vec2,
 }
@@ -223,13 +246,13 @@ NetworkMsgHeader :: struct #packed {
 	type: NetworkDataType,
 }
 
-MAX_ENTITY_SYNC_COUNT :: u64(1000 / size_of(EntitySyncData))
+MAX_ENTITY_SYNC_COUNT :: u64(1000 / size_of(EntityNetData))
 #assert(MAX_ENTITY_SYNC_COUNT > 0)
 
 NetworkServerSnapshot :: struct #packed {
 	using header: NetworkMsgHeader,
 	entity_count: u64,
-	entities:     [MAX_ENTITY_SYNC_COUNT]EntitySyncData,
+	entities:     [MAX_ENTITY_SYNC_COUNT]EntityNetData,
 }
 
 NetworkClientInput :: struct #packed {
@@ -254,10 +277,10 @@ Platform :: enum u8 {
 
 PLAYER_ENTITY :: Entity {
 	net = {
-		speed = 300,
+		speed = 220,
 		size = {16, 16},
 		flags = {.Controlabe, .Sync, .Alive, .Velocity},
-		friction = math.F32_MAX,
+		friction = 2000,
 		texture_id = .Player,
 		tint = 0xff,
 	},
@@ -368,12 +391,13 @@ game_init_window :: proc() {
 
 	rl.SetTraceLogLevel(.WARNING)
 	rl.InitWindow(0, 0, "CultLtd.")
-	rl.SetTargetFPS(60)
+	rl.SetTargetFPS(300)
 	rl.SetExitKey(nil)
 
 }
 
 ASSERT_DIR :: "debug_assets"
+
 RENDER_WIDTH :: 320
 RENDER_HEIGHT :: 180
 
@@ -425,7 +449,7 @@ game_init :: proc() {
 			.Left = .A,
 			.Interact = .E,
 			.Quit = .F12,
-			.Dash = .LEFT_SHIFT,
+			.Dash = .SPACE,
 			.PrimaryAction = rl.MouseButton.LEFT,
 			.SecondaryAction = rl.MouseButton.RIGHT,
 		},
@@ -615,9 +639,12 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 		assert(ctx.player_id != 0)
 		assert(ctx.player_count == 1)
 
+
 		entity := PLAYER_ENTITY
+		entity.position = WORLD_SIZE / 2
+		entity_handle := entity_add_sync_server(ctx, entity)
 		ctx.players[ctx.player_id] = {
-			entity = entity_add_sync_server(ctx, entity),
+			entity = entity_handle,
 		}
 		log.debug("Game enter")
 	} else {

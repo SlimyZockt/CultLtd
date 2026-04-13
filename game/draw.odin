@@ -273,8 +273,9 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 				// FIX: switch to a general animation system
 				@(static) animation_frame: i32 = 0
 				@(static) eleapsed_time: f32 = 0
-				animation: f32 = 0
-				flip_x: f32 = 1
+				@(static) animation: f32 = 0
+				@(static) flip_x: f32 = 1
+				moving: f32
 
 				if entity.direction.x == 0 {
 					switch entity.direction.y {
@@ -286,6 +287,7 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 				} else {
 					if entity.direction.x >= 0 { 	// Right
 						animation = 0
+						flip_x = 1
 					}
 					if entity.direction.x < 0 { 	// Left
 						animation = 0
@@ -294,8 +296,9 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 				}
 
 				if .Moving in entity.flags {
-					animation += 1
+					moving = 1
 				}
+				// log.debug(entity.flags)
 
 				eleapsed_time += delta_time
 				if eleapsed_time >= 0.100 {
@@ -306,7 +309,7 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 				rl.DrawTexturePro(
 					ctx.textures[.Player],
 					rl.Rectangle {
-						entity.size.x * (4 * animation + f32(animation_frame)),
+						entity.size.x * (4 * (animation + moving) + f32(animation_frame)),
 						entity.size.y,
 						entity.size.x * flip_x,
 						entity.size.y,
