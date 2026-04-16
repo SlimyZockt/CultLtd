@@ -232,6 +232,7 @@ GameCtx :: struct {
 	camera:                      rl.Camera2D,
 	textures:                    [TextureId]rl.Texture,
 	world_texture:               rl.Texture2D,
+	minimap_texture:             rl.Texture2D,
 	render_texture:              rl.RenderTexture2D,
 	chunk:                       [CHUNK_SIZE * CHUNK_SIZE]WorldTile,
 }
@@ -403,6 +404,7 @@ RENDER_HEIGHT :: 180
 
 @(export)
 game_init :: proc() {
+
 	rl.SetTraceLogCallback(rl_trace_to_log)
 	arena_err := vmem.arena_init_growing(&g_arena)
 	ensure(arena_err == nil)
@@ -462,6 +464,8 @@ game_init :: proc() {
 		window_size = Vec2{RENDER_WIDTH, RENDER_HEIGHT} * 3,
 	}
 	rl.SetTextureFilter(g_game_ctx.render_texture.texture, .POINT)
+	// g_game_ctx.world_shader = rl.LoadShader(nil, ASSERT_DIR + "/shaders/world_debug.frag.glsl")
+	// log.debug(g_game_ctx.world_shader)
 
 	{ 	//TODO(abdul): init Texture
 		// g_game_ctx.textures = make([dynamic]rl.Texture2D, 0, 100, allocator)
@@ -793,8 +797,9 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 				// rl.ImageDrawRectangleLines(&img, i32(world_x), i32(world_y))
 			}
 		}
-
+		ctx.minimap_texture = rl.LoadTextureFromImage(img)
 		ctx.world_texture = rl.LoadTextureFromImage(img)
+		// rl.UnloadImage(img)
 	}
 
 	log.warn("Game was initilazes")

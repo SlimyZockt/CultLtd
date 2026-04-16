@@ -10,6 +10,7 @@ import "core:reflect"
 import "core:strings"
 import "core:time"
 import rl "vendor:raylib"
+import rlgl "vendor:raylib/rlgl"
 
 import "../steam"
 
@@ -242,6 +243,7 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 		rl.BeginMode2D(ctx.camera)
 		defer rl.EndMode2D()
 
+		// assert(ctx.world_shader.locs != nil, "Shader missing")
 		rl.DrawTexturePro(
 			ctx.world_texture,
 			rl.Rectangle{0, 0, WORLD_SIZE, WORLD_SIZE},
@@ -250,6 +252,14 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 			0,
 			rl.WHITE,
 		)
+
+		if .Grid in ctx.debug_options { 	// GRID
+			rlgl.PushMatrix()
+			rlgl.Translatef(WORLD_SIZE * TILE_SIZE, WORLD_SIZE * TILE_SIZE, 0)
+			rlgl.Rotatef(90, 1, 0, 0)
+			rl.DrawGrid(2 * WORLD_SIZE, TILE_SIZE)
+			rlgl.PopMatrix()
+		}
 
 		// rl.DrawRectangle(0, 0, 64, 64, rl.GRAY)
 
