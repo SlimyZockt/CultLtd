@@ -20,7 +20,7 @@ import rl "vendor:raylib"
 import stbsp "vendor:stb/sprintf"
 
 import ase_cli "../aseprite"
-import "../steam"
+import "../platform"
 
 EntityFlagBits :: enum u32 {
 	Controlabe,
@@ -41,26 +41,21 @@ TextureId :: enum u64 {
 	Bullet,
 }
 
-
 Handle :: struct {
 	id:         u64,
 	generation: u64,
 }
-
 EntityHandle :: distinct Handle
-ItemHandle :: distinct Handle
-
-ItemNetData :: struct {
-	grid_position: Vec2,
-	texture_id:    TextureId,
-	quantity:      u16,
-	max_quantity:  u16,
+ItemId :: enum u32 {
+	None,
 }
-
-Item :: struct {
-	generation:  u64,
-	ui_position: Vec2,
-	using net:   ItemNetData,
+ItemStack :: struct {
+	max_size:   u8,
+	size:       u8,
+	position:   u8,
+	_padding:   u8,
+	id:         ItemId,
+	texture_id: TextureId,
 }
 
 INVALID_PLAYER_ID :: PlayerId(0)
@@ -105,27 +100,12 @@ CultCtxFlagBits :: enum u32 {
 
 CultCtxFlags :: bit_set[CultCtxFlagBits;u32]
 
-Action :: enum u8 {
-	DebugMenu,
-	Up,
-	Down,
-	Left,
-	Right,
-	Interact,
-	Quit,
-	PrimaryAction,
-	SecondaryAction,
-	Dash,
-}
-
 Scenes :: enum u32 {
 	MainMenu = 0,
 	Loading  = 1,
 	Game     = 2,
 }
 
-Actions :: bit_set[Action;u32]
-Seconds :: distinct f32
 PlayerId :: distinct u64
 
 PlayerStateBits :: enum u16 {
@@ -139,18 +119,21 @@ CombatMode :: enum u16 {
 	Cast,
 }
 
+
+PlayerInventory :: [9]EntityHandle
 PlayerSyncData :: struct {
+	// combat_mode:                   CombatMode,
 	state:                         PlayerState,
 	input_down:                    Actions,
 	input_pressed:                 Actions,
 	input_toggled:                 Actions,
 	mouse_screen_position:         Vec2,
 	mouse_virtual_screen_position: Vec2,
-	hold_item:                     ItemHandle,
-	combat_mode:                   CombatMode,
-
+	hold_item:                     EntityHandle,
+	inventory:                     PlayerInventory,
 	// mouse_position_world:          Vec2,
 }
+
 
 Player :: struct {
 	using network_shared_data: PlayerSyncData,
@@ -159,12 +142,10 @@ Player :: struct {
 	// ZZZ(Abdul)
 }
 
-
-CHUNK_SIZE :: 100
-
 WorldTileFlagBits :: enum u32 {
 	Infested,
 }
+
 WorldTileFlags :: bit_set[WorldTileFlagBits;u32]
 
 Biome :: enum u32 {
@@ -176,6 +157,7 @@ Biome :: enum u32 {
 	SPECIAL,
 }
 
+
 WorldTile :: struct {
 	flags:     WorldTileFlags,
 	biome:     Biome,
@@ -183,13 +165,10 @@ WorldTile :: struct {
 	using pos: Vec2,
 }
 
-Inputs :: union #no_nil {
-	rl.KeyboardKey,
-	rl.MouseButton,
-}
-
 EntityNetworkId :: distinct u64
 
+NULL_ENTITY_HANDLE :: EntityHandle{bits.U64_MAX, bits.U64_MAX}
+CHUNK_SIZE :: 100
 // WORLD_SIZE :: 10_000 // TODO: change this
 WORLD_SIZE :: CHUNK_SIZE
 WORLD_TILE_COUNT :: WORLD_SIZE * WORLD_SIZE
@@ -201,6 +180,7 @@ DebugOptionBits :: enum u16 {
 	LineToMouse,
 	ShowEntityHandle,
 	Grid,
+	AddItem,
 }
 
 DebugOptions :: bit_set[DebugOptionBits;u16]
@@ -213,7 +193,7 @@ GameCtx :: struct {
 	elapsed_logic_time:          f32,
 	elapsed_net_time:            f32,
 	// elapsed_time:                f32,
-	current_frame:               u32,
+	// current_frame:               u32,
 	seed:                        i64,
 	flags:                       CultCtxFlags,
 	player_id:                   PlayerId,
@@ -224,7 +204,7 @@ GameCtx :: struct {
 	network_id_to_handle_client: map[EntityNetworkId]EntityHandle,
 	// @(rodata)
 	pending_player_assignment:   Maybe(EntityNetworkId),
-	steam:                       steam.SteamCtx,
+	// steam:                       steam.SteamCtx,
 	scene:                       Scenes,
 	render_rect:                 rl.Rectangle,
 	render_scale:                f32,
@@ -270,12 +250,6 @@ NetworkPlayerAssignment :: struct #packed {
 
 LOG_PATH :: "berry.logs"
 
-Platform :: enum u8 {
-	NONE  = 0,
-	STEAM = 1,
-	// HEADLESS
-}
-
 PLAYER_ENTITY :: Entity {
 	net = {
 		speed = 220,
@@ -288,8 +262,6 @@ PLAYER_ENTITY :: Entity {
 	// texture_id = .Player,
 }
 
-PLATFORM :: Platform(#config(PLATFORM, Platform.NONE))
-
 LOGIC_TICK_RATE :: 1.0 / 60
 NET_TICK_RATE :: 1.0 / 60
 MAX_PLAYER_COUNT :: 8
@@ -299,7 +271,6 @@ g_cult_debug := #config(CULT_DEBUG, ODIN_DEBUG)
 g_ctx: runtime.Context
 g_arena: vmem.Arena
 g_spall_ctx: spall.Context
-
 
 @(thread_local)
 spall_buffer: spall.Buffer
@@ -385,7 +356,7 @@ g_game_ctx: GameCtx
 game_init_window :: proc() {
 	g_ctx = context
 	when ODIN_DEBUG {
-		rl.SetConfigFlags({.BORDERLESS_WINDOWED_MODE, .WINDOW_UNDECORATED, .WINDOW_MINIMIZED})
+		rl.SetConfigFlags({.BORDERLESS_WINDOWED_MODE})
 	} else {
 		rl.SetConfigFlags({.FULLSCREEN_MODE, .BORDERLESS_WINDOWED_MODE})
 	}
@@ -452,6 +423,7 @@ game_init :: proc() {
 			.Interact = .E,
 			.Quit = .F12,
 			.Dash = .SPACE,
+			.OpenInventory = .TAB,
 			.PrimaryAction = rl.MouseButton.LEFT,
 			.SecondaryAction = rl.MouseButton.RIGHT,
 		},
@@ -479,9 +451,7 @@ game_init :: proc() {
 		zoom   = 1,
 	}
 
-	when PLATFORM == .STEAM {
-		steam.init(&g_game_ctx.steam)
-	}
+	platform.platform_init(.Standalone)
 }
 
 @(export)
@@ -505,10 +475,11 @@ game_update :: proc() {
 
 	update_input(&g_game_ctx, LOGIC_TICK_RATE)
 
-	when PLATFORM == .STEAM {
+	assert(platform.info != nil)
+	if .Multiplayer in platform.info.platform_features {
 		for g_game_ctx.elapsed_net_time >= NET_TICK_RATE {
 			g_game_ctx.elapsed_net_time -= NET_TICK_RATE
-			steam.update_callback(&g_game_ctx.steam, update_network_steam, &g_game_ctx)
+			platform.platform_update(update_network, &g_game_ctx)
 		}
 	}
 
@@ -571,9 +542,8 @@ game_shutdown :: proc() {
 		spall.buffer_destroy(&g_spall_ctx, &spall_buffer)
 		spall.context_destroy(&g_spall_ctx)
 	}
-	when PLATFORM == .STEAM {
-		steam.deinit(&g_game_ctx.steam)
-	}
+
+	platform.platform_deinit()
 
 	g_game_ctx = {}
 	vmem.arena_destroy(&g_arena)
@@ -614,20 +584,17 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 	ctx.scene = .Game
 	allocator := vmem.arena_allocator(arena)
 
-	if is_multiplayer && PLATFORM == .STEAM {
-		assert(ctx.steam.max_lobby_size > 0)
-		assert(ctx.steam.lobby_size > 0)
-		ctx.player_id = PlayerId(ctx.steam.steam_id)
-		ctx.max_player_count = ctx.steam.max_lobby_size
-		ctx.player_count = ctx.steam.lobby_size
+	ctx.player_id = PlayerId(platform.info.player_id)
+	if is_multiplayer && .Multiplayer in platform.info.platform_features {
+		assert(platform.info.max_lobby_size > 0)
+		assert(platform.info.lobby_size > 0)
+		ctx.max_player_count = platform.info.max_lobby_size
+		ctx.player_count = platform.info.lobby_size
 		ctx.flags += {.Multiplayer}
-	} else if !is_multiplayer && PLATFORM == .STEAM {
+	} else if !is_multiplayer {
 		ctx.flags += {.Host}
-		ctx.player_id = PlayerId(ctx.steam.steam_id)
 		ctx.max_player_count = 1
 		ctx.player_count = 1
-	} else {
-		log.panic("Current Platform is not Supported")
 	}
 	assert(ctx.player_id != INVALID_PLAYER_ID)
 
@@ -649,6 +616,7 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 		entity_handle := entity_add_sync_server(ctx, entity)
 		ctx.players[ctx.player_id] = {
 			entity = entity_handle,
+			inventory = {0 ..< len(PlayerInventory) = NULL_ENTITY_HANDLE},
 		}
 		log.debug("Game enter")
 	} else {
@@ -799,7 +767,6 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 		}
 		ctx.minimap_texture = rl.LoadTextureFromImage(img)
 		ctx.world_texture = rl.LoadTextureFromImage(img)
-		// rl.UnloadImage(img)
 	}
 
 	log.warn("Game was initilazes")
@@ -819,7 +786,6 @@ entity_add_sync_server :: proc(ctx: ^GameCtx, entity: Entity) -> EntityHandle {
 	assert(.Host in ctx.flags)
 	entity.network_id = ctx.network_next_id_server
 	ctx.network_next_id_server += 1
-	// entity.owner_id =
 	return entity_add(&ctx.entities, entity)
 }
 

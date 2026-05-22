@@ -1,18 +1,15 @@
 package game
 
+import "../platform"
 import "core:container/xar"
 import "core:fmt"
-import "core:log"
 import "core:math"
 import "core:math/linalg"
 import vmem "core:mem/virtual"
 import "core:reflect"
 import "core:strings"
-import "core:time"
 import rl "vendor:raylib"
 import rlgl "vendor:raylib/rlgl"
-
-import "../steam"
 
 GHOST_COLOR :: Color{0xFF, 0, 0xFF, 0xA0}
 DEBUG_COLOR :: Color{80, 80, 80, 0x90}
@@ -214,9 +211,9 @@ draw_ui :: proc(ctx: ^GameCtx, delta_time: f32) {
 			game_enter(ctx, &g_arena)
 		}
 
-		when PLATFORM == .STEAM {
+		if .Multiplayer in platform.info.platform_features {
 			if rl.GuiButton(get_btn_rect(1, ctx.render_rect, ctx.render_scale), "Host") {
-				steam.create_lobby(&ctx.steam)
+				platform.platform_create_lobby()
 			}
 		}
 	}

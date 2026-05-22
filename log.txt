@@ -1,0 +1,5 @@
+[INFO ] --- [2026-04-13 11:54:59] [aseprite.odin:26:genereate_png_from_ase()] [Aseprite] -- parseing file: char.aseprite
+[INFO ] --- [2026-04-13 11:54:59] [aseprite.odin:26:genereate_png_from_ase()] [Aseprite] -- parseing file: cube.aseprite
+[WARN ] --- [2026-04-13 11:54:59] [steam.odin:103:steam_networtk_debug_to_log()] SDR network config fetch attempt #1 failed.  HTTP 504.  .  Trying again.
+[DEBUG] --- [2026-04-13 11:55:00] [game.odin:648:game_enter()] Game enter
+[WARN ] --- [2026-04-13 11:55:00] [game.odin:799:game_enter()] Game was initilazes

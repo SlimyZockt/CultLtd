@@ -6,20 +6,10 @@ import "core:c"
 import "core:log"
 import vmem "core:mem/virtual"
 
-Event :: struct {
-	type: enum u8 {},
-	// peer: Maybe(Peer),
-	id:   steam.CSteamID,
-}
-
-
-LOBBY_DATA_KEY :: "key"
+SteamFlags :: bit_set[SteamFlagBits;u8]
 SteamFlagBits :: enum u8 {
 	Host,
 }
-
-SteamFlags :: bit_set[SteamFlagBits;u8]
-
 
 Peer :: struct {
 	connection: steam.HSteamNetConnection,

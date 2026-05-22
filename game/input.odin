@@ -1,6 +1,7 @@
 package game
 
-import "../steam"
+// import "../steam"
+import "../platform"
 import "core:log"
 import "core:math/linalg"
 import rl "vendor:raylib"
@@ -37,20 +38,26 @@ is_input_released :: proc(keymap: [Action]Inputs, action: Action) -> bool {
 	unreachable()
 }
 
-// get_screen_pos_to_game_pos :: proc(mouse_pos: Vec2) -> (virual_mouse_pos: Vec2) {
-// 	// player.mouse_screen_position = rl.GetMousePosition()
-// 	virtual_position.x =
-// 		(player.mouse_screen_position.x - ctx.render_rect.x) / g_game_ctx.render_scale
-// 	player.mouse_virtual_screen_position.y =
-// 		(player.mouse_screen_position.y - ctx.render_rect.y) / g_game_ctx.render_scale
-// 	player.mouse_virtual_screen_position = linalg.clamp(
-// 		player.mouse_virtual_screen_position,
-// 		0,
-// 		Vec2{RENDER_WIDTH, RENDER_HEIGHT},
-// 	)
-//
-// 	return
-// }
+Action :: enum u8 {
+	DebugMenu,
+	Up,
+	Down,
+	Left,
+	Right,
+	Interact,
+	Quit,
+	PrimaryAction,
+	SecondaryAction,
+	Dash,
+	OpenInventory,
+}
+
+Actions :: bit_set[Action;u32]
+
+Inputs :: union #no_nil {
+	rl.KeyboardKey,
+	rl.MouseButton,
+}
 
 update_input :: proc(ctx: ^GameCtx, delta_time: f32) {
 	if ctx.scene != .Game do return
@@ -89,9 +96,8 @@ update_input :: proc(ctx: ^GameCtx, delta_time: f32) {
 
 	if is_input_pressed(ctx.keymap, .Quit) {
 		game_exit(ctx)
-		steam.disconnect(&ctx.steam)
+		platform.platform_disconnect_current_player_from_all()
 	}
 	// input_pressed^ =
 	// 	input_pressed^ + {i} if is_input_pressed(ctx.keymap, i) else input_pressed^ - {i}
-
 }

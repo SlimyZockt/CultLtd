@@ -1,16 +1,16 @@
 package game
 
-import steam "../steam/"
-import steamworks "../vendor/steamworks/"
-import "core:container/queue"
 import "core:container/xar"
-import "core:log"
+// import "core:log"
+import "../platform"
+import "../vendor/steamworks"
 
-update_network_steam :: proc(data: steam.NetEvent, user_data: rawptr) {
+update_network :: proc(data: platform.NetEvent, user_data: rawptr) { 	// TODO: FIX STEAM
 	ctx := (^GameCtx)(user_data)
+
 	switch v in data {
-	case steam.NetEventReceive:
-		msg := v.msg
+	case platform.NetEventReceive:
+		msg := v.msg.(^steamworks.SteamNetworkingMessage)
 		header := (^NetworkMsgHeader)(msg.pData)
 		switch header.type {
 		case .ServerSnapshot:
@@ -29,6 +29,7 @@ update_network_steam :: proc(data: steam.NetEvent, user_data: rawptr) {
 					if pending, ok := ctx.pending_player_assignment.?;
 					   ok && pending == entity_data.network_id {
 						ctx.players[ctx.player_id] = {
+							inventory = {0 ..< len(PlayerInventory) = NULL_ENTITY_HANDLE},
 							entity = new_handle,
 						}
 						ctx.pending_player_assignment = nil
@@ -69,25 +70,26 @@ update_network_steam :: proc(data: steam.NetEvent, user_data: rawptr) {
 				if exists {
 					ctx.players[ctx.player_id] = {
 						entity = handle,
+						inventory = {0 ..< len(PlayerInventory) = NULL_ENTITY_HANDLE},
 					}
 				} else {
 					ctx.pending_player_assignment = data.entity_network_id
 				}
 			}
 		}
-	case steam.NetEventConnectingToHost:
+	case platform.NetEventConnectingToHost:
 		ctx.scene = .Loading
-	case steam.NetEventCreated:
+	case platform.NetEventCreated:
 		ctx.flags += {.Host}
 		game_enter(ctx, &g_arena, true)
-	case steam.NetEventConnectedToHost:
+	case platform.NetEventConnectedToHost:
 		game_enter(ctx, &g_arena, true)
-	case steam.NetEventPeerDisconnected:
+	case platform.NetEventPeerDisconnected:
 		peer_handle := ctx.players[PlayerId(v.id)].entity
 		peer_entity, _ := entity_get(&ctx.entities, peer_handle)
 		peer_entity.flags += {.Destroy}
 		peer_entity.flags -= {.Alive}
-	case steam.NetEventPeerConnected:
+	case platform.NetEventPeerConnected:
 		ctx.player_count += 1
 		entity := PLAYER_ENTITY
 		new_handle := entity_add_sync_server(ctx, entity)
@@ -100,8 +102,8 @@ update_network_steam :: proc(data: steam.NetEvent, user_data: rawptr) {
 			target_player_id  = PlayerId(v.id),
 			entity_network_id = new_entity.network_id,
 		}
-		steam.write(&ctx.steam, &assignment, size_of(assignment))
-	case steam.NetEventDisconnectedFormHost:
+		platform.platform_send(&assignment, size_of(assignment))
+	case platform.NetEventDisconnectedFormHost:
 		game_exit(ctx)
 	}
 
@@ -119,7 +121,7 @@ update_network_steam :: proc(data: steam.NetEvent, user_data: rawptr) {
 			}
 
 			if packet.entity_count == MAX_ENTITY_SYNC_COUNT {
-				steam.write(&ctx.steam, &packet, size_of(packet))
+				platform.platform_send(&packet, size_of(packet))
 				packet = NetworkServerSnapshot {
 					type = .ServerSnapshot,
 				}
@@ -132,7 +134,7 @@ update_network_steam :: proc(data: steam.NetEvent, user_data: rawptr) {
 		}
 
 		if packet.entity_count > 0 {
-			steam.write(&ctx.steam, &packet, size_of(packet))
+			platform.platform_send(&packet, size_of(packet))
 		}
 	}
 
@@ -143,7 +145,7 @@ update_network_steam :: proc(data: steam.NetEvent, user_data: rawptr) {
 			id     = ctx.player_id,
 			player = player.network_shared_data,
 		}
-		steam.write(&ctx.steam, &packet, size_of(packet))
+		platform.platform_send(&packet, size_of(packet))
 
 		player.input_pressed = {}
 		ctx.players[ctx.player_id] = player

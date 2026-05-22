@@ -13,6 +13,7 @@ GunTypes :: enum u16 {
 	SpreedShoot,
 }
 
+
 // GunAttributes :: enum u16 {
 // 	BulletsPerShoot,
 // 	Recoil,
@@ -85,6 +86,7 @@ update_logic :: proc(ctx: ^GameCtx, delta_time: f32) {
 	if ctx.scene != .Game do return
 	if .Host not_in ctx.flags do return
 
+
 	for _, &player in ctx.players {
 		player_entity, _ := entity_get(&ctx.entities, player.entity)
 		input: Vec2
@@ -97,6 +99,7 @@ update_logic :: proc(ctx: ^GameCtx, delta_time: f32) {
 
 		dir := linalg.normalize(input)
 		player_entity.direction = dir
+
 
 		if .Dash in player.input_pressed {
 			player.input_pressed -= {.Dash}
@@ -232,16 +235,22 @@ update_logic :: proc(ctx: ^GameCtx, delta_time: f32) {
 		}
 	}
 
-	local_player, ok := ctx.players[ctx.player_id]
-	assert(ok)
-	local_player_entity, _ := entity_get(&ctx.entities, local_player.entity)
-	if local_player_entity != nil && .Alive in local_player_entity.flags {
-		ctx.camera.target = local_player_entity.position
-	}
+	{ 	// Local Game
+		local_player, ok := ctx.players[ctx.player_id]
+		assert(ok)
+		local_player_entity, _ := entity_get(&ctx.entities, local_player.entity)
+		if local_player_entity != nil && .Alive in local_player_entity.flags {
+			ctx.camera.target = local_player_entity.position
+		}
 
-	// for _, &player in ctx.players {
-	// 	// player_entity, _ := entity_get(&ctx.entities, player.entity)
-	// 	// assert(ok)
-	//
-	// }
+		if .AddItem in ctx.debug_options {
+			ctx.debug_options -= {.AddItem}
+
+			next_free_slot: EntityHandle
+
+			for i in local_player.inventory {
+
+			}
+		}
+	}
 }

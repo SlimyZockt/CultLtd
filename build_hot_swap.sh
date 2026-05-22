@@ -65,7 +65,7 @@ build_dll() {
     echo "---------- Building game$DLL_EXT ----------"
     odin build "$GAME_PATH" \
         -extra-linker-flags:"$EXTRA_LINKER_FLAGS" \
-        -define:RAYLIB_SHARED=true -define:PLATFORM=1 \
+        -define:RAYLIB_SHARED=true \
         -build-mode:dll -out:"$OUT_DIR/game_tmp$DLL_EXT" \
         -debug \
         "${STRICT_ARGS[@]}" \

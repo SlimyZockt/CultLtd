@@ -1,0 +1,1 @@
+[WARN ] --- [2026-05-22 17:16:39] [game.odin:337:rl_trace_to_log()] FILEIO: [debug_assets/player.png] Failed to open file
