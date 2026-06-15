@@ -370,8 +370,9 @@ game_init_window :: proc() {
 
 ASSERT_DIR :: "debug_assets"
 
-RENDER_WIDTH :: 320
-RENDER_HEIGHT :: 180
+// CANVAS
+CANVAS_WIDTH :: 320
+CANVAS_HEIGHT :: 180
 
 @(export)
 game_init :: proc() {
@@ -432,8 +433,8 @@ game_init :: proc() {
 			.Player = rl.LoadTexture(ASSERT_DIR + "/player.png"),
 			.Bullet = {},
 		},
-		render_texture = rl.LoadRenderTexture(RENDER_WIDTH, RENDER_HEIGHT),
-		window_size = Vec2{RENDER_WIDTH, RENDER_HEIGHT} * 3,
+		render_texture = rl.LoadRenderTexture(CANVAS_WIDTH, CANVAS_HEIGHT),
+		window_size = Vec2{CANVAS_WIDTH, CANVAS_HEIGHT} * 3,
 	}
 	rl.SetTextureFilter(g_game_ctx.render_texture.texture, .POINT)
 	// g_game_ctx.world_shader = rl.LoadShader(nil, ASSERT_DIR + "/shaders/world_debug.frag.glsl")
@@ -447,7 +448,7 @@ game_init :: proc() {
 
 
 	g_game_ctx.camera = {
-		offset = Vec2{RENDER_WIDTH, RENDER_HEIGHT} / 2,
+		offset = Vec2{CANVAS_WIDTH, CANVAS_HEIGHT} / 2,
 		zoom   = 1,
 	}
 
@@ -463,14 +464,14 @@ game_update :: proc() {
 
 	g_game_ctx.window_size = {f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight())}
 	g_game_ctx.render_scale = min(
-		g_game_ctx.window_size.x / RENDER_WIDTH,
-		g_game_ctx.window_size.y / RENDER_HEIGHT,
+		g_game_ctx.window_size.x / CANVAS_WIDTH,
+		g_game_ctx.window_size.y / CANVAS_HEIGHT,
 	)
 	g_game_ctx.render_rect = rl.Rectangle {
-		(f32(g_game_ctx.window_size.x) - (f32(RENDER_WIDTH) * g_game_ctx.render_scale)) * .5,
-		(f32(g_game_ctx.window_size.y) - (f32(RENDER_HEIGHT) * g_game_ctx.render_scale)) * .5,
-		f32(RENDER_WIDTH) * g_game_ctx.render_scale,
-		f32(RENDER_HEIGHT) * g_game_ctx.render_scale,
+		(f32(g_game_ctx.window_size.x) - (f32(CANVAS_WIDTH) * g_game_ctx.render_scale)) * .5,
+		(f32(g_game_ctx.window_size.y) - (f32(CANVAS_HEIGHT) * g_game_ctx.render_scale)) * .5,
+		f32(CANVAS_WIDTH) * g_game_ctx.render_scale,
+		f32(CANVAS_HEIGHT) * g_game_ctx.render_scale,
 	}
 
 	update_input(&g_game_ctx, LOGIC_TICK_RATE)
@@ -489,6 +490,7 @@ game_update :: proc() {
 		update_logic(&g_game_ctx, LOGIC_TICK_RATE)
 
 	}
+
 
 	{ 	// Render
 		{ 	// Render to Texture
@@ -627,54 +629,7 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 	rand.reset(u64(ctx.seed))
 
 
-	{ 	// generate world
-		circle :: proc(dist: [2]$T, $radius: T) -> T where intrinsics.type_is_numeric(T),
-			0 >= radius,
-			1 <= radius {
-			boarder := linalg.smootherstep(
-				radius - (radius * 0.001),
-				radius + (radius * 0.001),
-				linalg.dot(dist, dist) * 4,
-			)
-			return boarder
-		}
-
-		hash22 :: proc(point: [2]$T) -> [2]T where intrinsics.type_is_numeric(T) {
-			return linalg.fract(
-				linalg.sin(
-					[2]T {
-						linalg.vector_dot(point, [2]T{127.1, 331.7}),
-						linalg.vector_dot(point, [2]T{269.5, 183.3}),
-					},
-				) *
-				43758.5453,
-			)
-		}
-
-		poisson_disk_sample_square_2D :: proc(
-			min_distance: u8,
-			$max_tries_per_point: u8,
-			$radius: u64,
-			$size: u64,
-			arena: ^runtime.Arena,
-		) -> []Vec2 {
-			DIMONSIONS :: 2
-			CELL_SIZE :: radius / intrinsics.sqrt(2)
-
-			alloc := vmem.arena_allocator(arena)
-
-			points := make_dynamic_array([dynamic]Vec2, (size * size) / 10, alloc)
-			points[0] = Vec2{rand.float32(), rand.float32()}
-			append(&points, Vec2{1, 0})
-
-			for {
-				points
-			}
-
-
-			return points[:]
-		}
-
+	{ 	// world generation
 		uv_to_color :: proc(uv: Vec2) -> rl.Color {
 			return {u8(uv.x * 255), u8(uv.y * 255), 0, 255}
 		}
@@ -704,6 +659,20 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 		// SEGMENT_COUNT :: (WORLD_SIZE * WORLD_SIZE) / 50
 		SEGMENT_DIVIDER_COUNT :: WORLD_SIZE / 10
 		BIOME_DIVIDER_COUNT :: 2
+
+		segment_color := [SEGMENT_DIVIDER_COUNT]Color {
+			0xff,
+			0xff,
+			0xff,
+			0xff,
+			0xff,
+			0xff,
+			0xff,
+			0xff,
+			0xff,
+			0xff,
+		}
+
 		// BIMOE_COUNT :: BIOME_DIVIDER_COUNT * BIOME_DIVIDER_COUNT
 		for world_y in 0 ..< f32(WORLD_SIZE) {
 			for world_x in 0 ..< f32(WORLD_SIZE) {
@@ -715,37 +684,10 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 
 				uv := pos / WORLD_SIZE
 				segment_uv := uv * SEGMENT_DIVIDER_COUNT
-				grid_pos_in_segment_uv := linalg.floor(segment_uv)
-				pos_in_segment := linalg.fract(segment_uv)
 
-				min_dist_segment := f32(1)
-				nearest_point_segment := Vec2{}
-
-				for y in -1 ..= f32(1) {
-					for x in -1 ..= f32(1) { 	//TODO: make it cleaner
-						neighbor_tile_pos := Vec2{x, y}
-						neighbor_pos_in_segment := grid_pos_in_segment_uv + neighbor_tile_pos
-						anchor_point_in_segment := hash22(neighbor_pos_in_segment + rand_offset) // TODO: change to Poisson-Disc Sampling
-						maybe_nearest_point_in_segment :=
-							neighbor_tile_pos + anchor_point_in_segment
-
-						diff := maybe_nearest_point_in_segment - pos_in_segment
-						dist := linalg.length(diff)
-						if dist < min_dist_segment {
-							min_dist_segment = dist
-							nearest_point_segment =
-								maybe_nearest_point_in_segment + grid_pos_in_segment_uv
-						}
-					}
-				}
-
-				point_segment := nearest_point_segment / SEGMENT_DIVIDER_COUNT // revert uv space
-				dist := linalg.distance(point_segment, Vec2{.5, .5})
-				assert(0.0 <= dist && dist <= 1.0)
 
 				rl_color := rl.BLACK
-				color := nearest_point_segment * 255
-				dist = 1 - dist
+				dist := 0.0
 				switch {
 				case dist < .6:
 					ctx.chunk[i].biome = .OCEAN
@@ -754,12 +696,15 @@ game_enter :: proc(ctx: ^GameCtx, arena: ^vmem.Arena, is_multiplayer := false) {
 					ctx.chunk[i].biome = .DESSERT
 					rl_color = rl.YELLOW
 				case dist < .92:
-					rl_color = rl.Color{u8(color.x), u8(color.y), 0, 255} //TODO: DEALT WITH BIOMES
+				// rl_color = rl.Color{u8(color.x), u8(color.y), 0, 255} //TODO: DEALT WITH BIOMES
 				case dist < 1:
 					ctx.chunk[i].biome = .SNOW
 					rl_color = rl.LIGHTGRAY
 				case:
 				}
+
+				rl_color = uv_to_color(segment_uv)
+
 
 				rl.ImageDrawPixel(&img, i32(world_x), i32(world_y), rl_color)
 				// rl.ImageDrawRectangleLines(&img, i32(world_x), i32(world_y))

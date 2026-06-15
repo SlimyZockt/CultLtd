@@ -88,7 +88,7 @@ update_input :: proc(ctx: ^GameCtx, delta_time: f32) {
 	player.mouse_virtual_screen_position = linalg.clamp(
 		player.mouse_virtual_screen_position,
 		0,
-		Vec2{RENDER_WIDTH, RENDER_HEIGHT},
+		Vec2{CANVAS_WIDTH, CANVAS_HEIGHT},
 	)
 
 	ctx.players[ctx.player_id] = player

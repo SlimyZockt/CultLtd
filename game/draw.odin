@@ -366,8 +366,8 @@ draw_game :: proc(ctx: ^GameCtx, delta_time: f32) {
 
 
 	if .Cross in ctx.debug_options {
-		rl.DrawLineEx({0, RENDER_HEIGHT / 2}, {RENDER_WIDTH, RENDER_HEIGHT / 2}, 2, DEBUG_COLOR)
-		rl.DrawLineEx({RENDER_WIDTH / 2, 0}, {RENDER_WIDTH / 2, RENDER_HEIGHT}, 2, DEBUG_COLOR)
+		rl.DrawLineEx({0, CANVAS_HEIGHT / 2}, {CANVAS_WIDTH, CANVAS_HEIGHT / 2}, 2, DEBUG_COLOR)
+		rl.DrawLineEx({CANVAS_WIDTH / 2, 0}, {CANVAS_WIDTH / 2, CANVAS_HEIGHT}, 2, DEBUG_COLOR)
 	}
 
 }
